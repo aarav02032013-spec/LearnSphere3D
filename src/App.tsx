@@ -11,20 +11,20 @@ import { GradeLevel, NoteItem } from './types';
 import { DEFAULT_NOTES } from './data/defaultNotes';
 import { CheckCircle2, ArrowRight } from 'lucide-react';
 
-const LOCAL_STORAGE_NOTES_KEY = 'omnilearn_student_notes_v1';
+const LOCAL_STORAGE_NOTES_KEY = 'learnsphere_student_notes_v1';
+const LEGACY_STORAGE_NOTES_KEY = 'omnilearn_student_notes_v1';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<
     'learning' | 'advanced_lab' | 'chemistry' | 'physics' | 'notes'
   >('learning');
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel | 'all'>('all');
-  const [audioMuted, setAudioMuted] = useState<boolean>(false);
   const [guideOpen, setGuideOpen] = useState<boolean>(false);
 
   // Notes state with localStorage persistence
   const [notes, setNotes] = useState<NoteItem[]>(() => {
     try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_NOTES_KEY);
+      const stored = localStorage.getItem(LOCAL_STORAGE_NOTES_KEY) || localStorage.getItem(LEGACY_STORAGE_NOTES_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -100,8 +100,6 @@ export default function App() {
         setActiveSection={setActiveSection}
         selectedGrade={selectedGrade}
         setSelectedGrade={setSelectedGrade}
-        audioMuted={audioMuted}
-        setAudioMuted={setAudioMuted}
         onOpenGuide={() => setGuideOpen(true)}
       />
 
@@ -126,7 +124,6 @@ export default function App() {
             <Model3DViewer
               selectedGrade={selectedGrade}
               onAddNote={handleAddNote}
-              audioMuted={audioMuted}
             />
           )}
 

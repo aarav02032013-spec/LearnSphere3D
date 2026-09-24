@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, HelpCircle, Sparkles, BookOpen } from 'lucide-react';
+import { HelpCircle, Sparkles, BookOpen } from 'lucide-react';
 import { GradeLevel } from '../types';
 
 interface HeaderProps {
@@ -7,8 +7,6 @@ interface HeaderProps {
   setActiveSection: (sec: 'learning' | 'advanced_lab' | 'chemistry' | 'physics' | 'notes') => void;
   selectedGrade: GradeLevel | 'all';
   setSelectedGrade: (grade: GradeLevel | 'all') => void;
-  audioMuted: boolean;
-  setAudioMuted: (muted: boolean) => void;
   onOpenGuide: () => void;
 }
 
@@ -17,8 +15,6 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveSection,
   selectedGrade,
   setSelectedGrade,
-  audioMuted,
-  setAudioMuted,
   onOpenGuide
 }) => {
   const navItems = [
@@ -42,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
               <Sparkles className="w-4 h-4" />
             </div>
             <span className="font-display text-xl font-bold tracking-tight text-white group-hover:text-cyan-300 transition-colors">
-              OmniLearn 3D
+              LearnSphere 3D
             </span>
           </button>
         </div>
@@ -115,16 +111,6 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
           )}
-
-          {/* Audio narration mute toggle */}
-          <button
-            onClick={() => setAudioMuted(!audioMuted)}
-            title={audioMuted ? 'Unmute Audio Narration' : 'Mute Audio Narration'}
-            aria-label={audioMuted ? 'Unmute Audio Narration' : 'Mute Audio Narration'}
-            className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-cyan-300 hover:border-slate-700 transition-colors"
-          >
-            {audioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-cyan-400" />}
-          </button>
 
           {/* Help & Guide */}
           <button

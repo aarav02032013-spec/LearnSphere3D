@@ -19,7 +19,7 @@ export const LabGuideModal: React.FC<LabGuideModalProps> = ({ isOpen, onClose })
             </div>
             <div>
               <h3 className="font-display text-lg font-bold text-white">
-                OmniLearn 3D Interactive Lab Guide
+                LearnSphere 3D Interactive Lab Guide
               </h3>
               <p className="text-xs text-slate-400">
                 Quick orientation to the 5 interactive learning modules

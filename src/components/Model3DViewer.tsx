@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   RotateCcw, 
   Layers, 
   Eye, 
-  Volume2, 
   Play, 
   Pause, 
   PlusCircle, 
@@ -21,13 +20,11 @@ import { ErrorBoundary } from './ErrorBoundary';
 interface Model3DViewerProps {
   selectedGrade: GradeLevel | 'all';
   onAddNote: (title: string, subject: 'Biology' | 'Mathematics', content: string, tags: string[], labRef: string) => void;
-  audioMuted: boolean;
 }
 
 export const Model3DViewer: React.FC<Model3DViewerProps> = ({
   selectedGrade,
-  onAddNote,
-  audioMuted
+  onAddNote
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<'All' | 'Biology' | 'Mathematics'>('All');
   const [activeModelId, setActiveModelId] = useState<string>('plant_cell');
@@ -37,7 +34,13 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
   const [xray, setXray] = useState<boolean>(false);
   const [autoRotate, setAutoRotate] = useState<boolean>(true);
   const [noteCopied, setNoteCopied] = useState<boolean>(false);
-  const [speaking, setSpeaking] = useState<boolean>(false);
+
+  // Cancel any ongoing browser speech synthesis if present
+  useEffect(() => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
 
   // Filter models
   const filteredModels = BIOLOGY_MATH_MODELS.filter((m) => {
@@ -53,25 +56,6 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
     setActiveModelId(m.id);
     setSelectedPin(m.pinpoints[0] || null);
     setExplodeFactor(0);
-  };
-
-  // Text to speech narration
-  const handleSpeak = (text: string) => {
-    if (audioMuted) return;
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      if (speaking) {
-        setSpeaking(false);
-        return;
-      }
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.05;
-      utterance.onend = () => setSpeaking(false);
-      utterance.onerror = () => setSpeaking(false);
-      setSpeaking(true);
-      window.speechSynthesis.speak(utterance);
-    }
   };
 
   // Attach to Notes
@@ -248,7 +232,6 @@ ${activeModel.keyConcepts.map((k) => `- ${k}`).join('\n')}
                 selectedPinId={selectedPin?.id || null}
                 onSelectPin={(pin) => {
                   setSelectedPin(pin);
-                  handleSpeak(`${pin.name}. ${pin.description}`);
                 }}
               />
             </ErrorBoundary>
@@ -282,22 +265,8 @@ ${activeModel.keyConcepts.map((k) => `- ${k}`).join('\n')}
             {/* Action buttons */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() =>
-                  handleSpeak(
-                    selectedPin
-                      ? `${selectedPin.name}: ${selectedPin.description}`
-                      : `${activeModel.title}: ${activeModel.description}`
-                  )
-                }
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-lg text-slate-300 hover:text-cyan-300 transition-colors"
-              >
-                <Volume2 className={`w-3.5 h-3.5 ${speaking ? 'text-cyan-400 animate-pulse' : ''}`} />
-                <span>{speaking ? 'Stop Voice' : 'Listen'}</span>
-              </button>
-
-              <button
                 onClick={handleSendToNotes}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-cyan-600/20 border border-cyan-500/40 hover:bg-cyan-600/30 text-cyan-300 rounded-lg transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-cyan-600/20 border border-cyan-500/40 hover:bg-cyan-600/30 text-cyan-300 rounded-lg transition-all cursor-pointer"
               >
                 {noteCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <PlusCircle className="w-3.5 h-3.5" />}
                 <span>{noteCopied ? 'Saved to Notes!' : 'Save to Notes'}</span>
@@ -362,7 +331,6 @@ ${activeModel.keyConcepts.map((k) => `- ${k}`).join('\n')}
                       key={pin.id}
                       onClick={() => {
                         setSelectedPin(pin);
-                        handleSpeak(`${pin.name}. ${pin.description}`);
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
                         isCur
