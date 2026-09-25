@@ -19,7 +19,10 @@ import {
   generateProjectileQuiz, 
   generateCollisionQuiz, 
   generateGravityQuiz, 
-  generatePendulumQuiz 
+  generatePendulumQuiz,
+  generateNewtonFirstQuiz,
+  generateNewtonSecondQuiz,
+  generateNewtonThirdQuiz
 } from '../data/physicsData';
 
 interface PhysicsSimulationsProps {
@@ -27,9 +30,37 @@ interface PhysicsSimulationsProps {
 }
 
 export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNote }) => {
-  const [activeSim, setActiveSim] = useState<PhysicsSimType>('projectile');
+  const [activeSim, setActiveSim] = useState<PhysicsSimType>('newton_second');
   const [isRunning, setIsRunning] = useState<boolean>(true);
   const [noteCopied, setNoteCopied] = useState<boolean>(false);
+
+  // --- Newton's 1st Law (Inertia) State ---
+  const [n1Mass, setN1Mass] = useState<number>(5.0); // kg
+  const [n1Friction, setN1Friction] = useState<number>(0.0); // 0 = frictionless ice/space
+  const [n1PuckSpeed, setN1PuckSpeed] = useState<number>(14); // m/s impulse
+  const n1PosRef = useRef<number>(140);
+  const n1VelRef = useRef<number>(14);
+
+  // --- Newton's 2nd Law (F = ma) State ---
+  const [n2Force, setN2Force] = useState<number>(50); // Newtons
+  const [n2Mass, setN2Mass] = useState<number>(10.0); // kg
+  const [n2Friction, setN2Friction] = useState<number>(0.08); // coeff
+  const n2PosRef = useRef<number>(160);
+  const n2VelRef = useRef<number>(0);
+
+  // --- Newton's 3rd Law (Action / Reaction) State ---
+  const [n3Mode, setN3Mode] = useState<'astronauts' | 'rocket'>('astronauts');
+  const [n3MassA, setN3MassA] = useState<number>(60); // kg
+  const [n3MassB, setN3MassB] = useState<number>(120); // kg
+  const [n3PushForce, setN3PushForce] = useState<number>(180); // N
+  const n3PosARef = useRef<number>(290);
+  const n3PosBRef = useRef<number>(390);
+  const n3VelARef = useRef<number>(0);
+  const n3VelBRef = useRef<number>(0);
+  const n3RocketPosRef = useRef<number>(180);
+  const n3RocketVelRef = useRef<number>(0);
+  const n3RocketThrust = useRef<boolean>(true);
+  const n3ParticlesRef = useRef<{ x: number; y: number; vx: number; vy: number; life: number; color: string }[]>([]);
 
   // --- Projectile Motion State ---
   const [projV0, setProjV0] = useState<number>(35); // m/s
@@ -80,13 +111,46 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
   // Reset simulation dynamics on parameter change
   useEffect(() => {
     simTimeRef.current = 0;
+    n1PosRef.current = 140;
+    n1VelRef.current = n1PuckSpeed;
+    n2PosRef.current = 160;
+    n2VelRef.current = 0;
+    n3PosARef.current = 290;
+    n3PosBRef.current = 390;
+    n3VelARef.current = 0;
+    n3VelBRef.current = 0;
+    n3RocketPosRef.current = 180;
+    n3RocketVelRef.current = 0;
+    n3ParticlesRef.current = [];
     cart1PosRef.current = 100;
     cart2PosRef.current = 380;
     cart1VelRef.current = colV1;
     cart2VelRef.current = colV2;
     pendThetaRef.current = (pendAngle0 * Math.PI) / 180;
     pendOmegaRef.current = 0;
-  }, [activeSim, projV0, projAngle, projBodyIndex, colM1, colM2, colV1, colV2, colElasticity, pendLength, pendAngle0]);
+  }, [
+    activeSim,
+    n1Mass,
+    n1Friction,
+    n1PuckSpeed,
+    n2Force,
+    n2Mass,
+    n2Friction,
+    n3Mode,
+    n3MassA,
+    n3MassB,
+    n3PushForce,
+    projV0,
+    projAngle,
+    projBodyIndex,
+    colM1,
+    colM2,
+    colV1,
+    colV2,
+    colElasticity,
+    pendLength,
+    pendAngle0
+  ]);
 
   // Main Canvas Physics Render Loop
   useEffect(() => {
@@ -107,7 +171,36 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (activeSim === 'projectile') {
+      if (activeSim === 'newton_first') {
+        renderNewtonFirstSim(ctx, canvas, dt, isRunning, {
+          mass: n1Mass,
+          friction: n1Friction,
+          posRef: n1PosRef,
+          velRef: n1VelRef
+        });
+      } else if (activeSim === 'newton_second') {
+        renderNewtonSecondSim(ctx, canvas, dt, isRunning, {
+          force: n2Force,
+          mass: n2Mass,
+          friction: n2Friction,
+          posRef: n2PosRef,
+          velRef: n2VelRef
+        });
+      } else if (activeSim === 'newton_third') {
+        renderNewtonThirdSim(ctx, canvas, dt, isRunning, {
+          mode: n3Mode,
+          massA: n3MassA,
+          massB: n3MassB,
+          pushForce: n3PushForce,
+          posARef: n3PosARef,
+          posBRef: n3PosBRef,
+          velARef: n3VelARef,
+          velBRef: n3VelBRef,
+          rocketPosRef: n3RocketPosRef,
+          rocketVelRef: n3RocketVelRef,
+          particlesRef: n3ParticlesRef
+        });
+      } else if (activeSim === 'projectile') {
         renderProjectileSim(ctx, canvas, dt, isRunning, {
           v0: projV0,
           angle: projAngle,
@@ -152,6 +245,16 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
   }, [
     activeSim,
     isRunning,
+    n1Mass,
+    n1Friction,
+    n1PuckSpeed,
+    n2Force,
+    n2Mass,
+    n2Friction,
+    n3Mode,
+    n3MassA,
+    n3MassB,
+    n3PushForce,
     projV0,
     projAngle,
     projBodyIndex,
@@ -170,7 +273,13 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
   // Generate dynamic quiz
   const handleOpenQuiz = () => {
     let generated: QuizQuestion[] = [];
-    if (activeSim === 'projectile') {
+    if (activeSim === 'newton_first') {
+      generated = generateNewtonFirstQuiz(n1Mass, n1Friction, n1VelRef.current);
+    } else if (activeSim === 'newton_second') {
+      generated = generateNewtonSecondQuiz(n2Force, n2Mass, n2Friction);
+    } else if (activeSim === 'newton_third') {
+      generated = generateNewtonThirdQuiz(n3MassA, n3MassB, n3PushForce);
+    } else if (activeSim === 'projectile') {
       const body = CELESTIAL_BODIES[projBodyIndex];
       generated = generateProjectileQuiz(projV0, projAngle, body.gravity, body.name);
     } else if (activeSim === 'collision') {
@@ -214,7 +323,42 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
     let title = '';
     let content = '';
 
-    if (activeSim === 'projectile') {
+    if (activeSim === 'newton_first') {
+      const frictionForce = n1Friction * n1Mass * 9.81;
+      title = "Newton's First Law of Motion: Law of Inertia";
+      content = `### Newton's 1st Law (Law of Inertia)
+- **Statement**: An object at rest stays at rest, and an object in motion continues with constant velocity in a straight line, unless acted upon by a net external force (∑F = 0 ⟹ a = 0, v = constant).
+- **Tested Mass**: ${n1Mass} kg
+- **Frictional Coefficient (μ)**: ${n1Friction.toFixed(2)} (${n1Friction === 0 ? 'Frictionless Space / Ice' : 'Contact Surface'})
+- **Frictional Braking Force**: \`F_f = μ · m · g = ${frictionForce.toFixed(2)} N\`
+- **Current Velocity**: \`${n1VelRef.current.toFixed(2)} m/s\`
+- **Key Principle**: Friction is an external contact force that robs kinetic energy. In the absence of net external forces, velocity remains strictly constant without requiring any continuous propulsion force!`;
+    } else if (activeSim === 'newton_second') {
+      const fNorm = n2Mass * 9.81;
+      const fFricMax = n2Friction * fNorm;
+      const fNet = Math.abs(n2Force) > fFricMax ? n2Force - Math.sign(n2Force) * fFricMax : 0;
+      const accel = fNet / n2Mass;
+      title = "Newton's Second Law of Motion: F_net = m · a";
+      content = `### Newton's 2nd Law (Force, Mass & Acceleration)
+- **Fundamental Formula**: \`F_net = m · a ⟹ a = F_net / m\`
+- **Applied Force (F_applied)**: \`${n2Force} N\`
+- **Object Mass (m)**: \`${n2Mass} kg\`
+- **Friction Force (F_f)**: \`${fFricMax.toFixed(2)} N\` (μ = ${n2Friction.toFixed(2)})
+- **Net Resultant Force (F_net)**: \`${fNet.toFixed(2)} N\`
+- **Calculated Acceleration (a)**: \`${accel.toFixed(2)} m/s²\`
+- **Key Insight**: Acceleration is directly proportional to net force and inversely proportional to inertia/mass. Doubling force doubles acceleration; doubling mass halves acceleration.`;
+    } else if (activeSim === 'newton_third') {
+      title = "Newton's Third Law of Motion: Action & Reaction";
+      const accelA = n3PushForce / n3MassA;
+      const accelB = n3PushForce / n3MassB;
+      content = `### Newton's 3rd Law (Action-Reaction Pairs)
+- **Principle**: Whenever object A exerts a force on object B, object B simultaneously exerts an equal and opposite force on object A: \`F_{A → B} = -F_{B → A}\`.
+- **Interaction Push Force**: \`${n3PushForce} N\`
+- **Astronaut A (m_A = ${n3MassA} kg)**: Experiences Force = \`-${n3PushForce} N\`, resulting in acceleration \`a_A = -${accelA.toFixed(2)} m/s²\`.
+- **Astronaut B (m_B = ${n3MassB} kg)**: Experiences Force = \`+${n3PushForce} N\`, resulting in acceleration \`a_B = +${accelB.toFixed(2)} m/s²\`.
+- **Total System Momentum**: \`p_total = m_A·v_A + m_B·v_B = 0 kg·m/s\` (Conserved)
+- **Why Forces Don't Cancel**: Action and reaction act on TWO DIFFERENT bodies, causing each body to accelerate independently according to its own mass!`;
+    } else if (activeSim === 'projectile') {
       const body = CELESTIAL_BODIES[projBodyIndex];
       const theta = (projAngle * Math.PI) / 180;
       const v0y = projV0 * Math.sin(theta);
@@ -271,7 +415,7 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
       title,
       'Physics',
       content,
-      ['Physics Simulation', activeSim, 'Kinematics'],
+      ['Physics Simulation', activeSim, 'NewtonLaws', 'Mechanics'],
       `Physics Lab: ${activeSim}`
     );
 
@@ -288,13 +432,16 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
             <span>Motion Physics Simulations</span>
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Real-time interactive mechanics with forces, vectors, telemetry, and automated comprehension quizzes.
+            Newton's Laws of Motion, Kinematics, Collisions, Orbitals, and Real-Time Vector Dynamics.
           </p>
         </div>
 
         {/* Sim Tabs */}
         <div className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto no-scrollbar">
           {[
+            { id: 'newton_first', label: "Newton's 1st Law (Inertia)" },
+            { id: 'newton_second', label: "Newton's 2nd Law (F = ma)" },
+            { id: 'newton_third', label: "Newton's 3rd Law (Action/Reaction)" },
             { id: 'projectile', label: 'Projectile Motion' },
             { id: 'collision', label: '1D Collisions' },
             { id: 'gravity', label: 'Orbital Gravity' },
@@ -308,9 +455,9 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
                   setActiveSim(tab.id as PhysicsSimType);
                   setQuizActive(false);
                 }}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-all ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-all cursor-pointer ${
                   isSel
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm font-semibold'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                 }`}
               >
@@ -340,13 +487,25 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsRunning(!isRunning)}
-                className="p-1.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-300 hover:text-cyan-300 transition-colors"
+                className="p-1.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-300 hover:text-cyan-300 transition-colors cursor-pointer"
+                title={isRunning ? 'Pause' : 'Play'}
               >
                 {isRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
               </button>
               <button
                 onClick={() => {
                   simTimeRef.current = 0;
+                  n1PosRef.current = 140;
+                  n1VelRef.current = n1PuckSpeed;
+                  n2PosRef.current = 160;
+                  n2VelRef.current = 0;
+                  n3PosARef.current = 290;
+                  n3PosBRef.current = 390;
+                  n3VelARef.current = 0;
+                  n3VelBRef.current = 0;
+                  n3RocketPosRef.current = 180;
+                  n3RocketVelRef.current = 0;
+                  n3ParticlesRef.current = [];
                   cart1PosRef.current = 100;
                   cart2PosRef.current = 380;
                   cart1VelRef.current = colV1;
@@ -354,7 +513,8 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
                   pendThetaRef.current = (pendAngle0 * Math.PI) / 180;
                   pendOmegaRef.current = 0;
                 }}
-                className="p-1.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+                className="p-1.5 bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
+                title="Reset simulation"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
@@ -499,6 +659,333 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
                 </span>
                 <span className="text-[11px] font-mono text-cyan-400">Live Modifiers</span>
               </div>
+
+              {activeSim === 'newton_first' && (
+                <div className="space-y-4">
+                  {/* Impulse actions */}
+                  <div className="space-y-1.5">
+                    <span className="text-xs text-slate-400 block font-medium">Apply External Impulse Force:</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        onClick={() => {
+                          n1VelRef.current = 15;
+                        }}
+                        className="py-2 px-3 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 rounded-xl text-xs font-semibold text-cyan-300 transition-all cursor-pointer"
+                      >
+                        Push Right (+15 m/s)
+                      </button>
+                      <button
+                        onClick={() => {
+                          n1VelRef.current = -15;
+                        }}
+                        className="py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-semibold text-slate-200 transition-all cursor-pointer"
+                      >
+                        Push Left (-15 m/s)
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => {
+                        n1VelRef.current = 0;
+                      }}
+                      className="w-full py-1.5 bg-slate-950 hover:bg-slate-900 border border-slate-800 rounded-lg text-[11px] text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      Halt / Bring to Rest (v = 0)
+                    </button>
+                  </div>
+
+                  {/* Surface Presets */}
+                  <div className="space-y-1.5">
+                    <span className="text-xs text-slate-400 block font-medium">Surface Medium (Friction μ):</span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { label: 'Deep Space / Ice', mu: 0.0 },
+                        { label: 'Teflon Track', mu: 0.08 },
+                        { label: 'Polished Wood', mu: 0.20 },
+                        { label: 'Rough Asphalt', mu: 0.50 }
+                      ].map((item) => (
+                        <button
+                          key={item.label}
+                          onClick={() => setN1Friction(item.mu)}
+                          className={`p-2 rounded-xl text-xs text-left border transition-all cursor-pointer ${
+                            n1Friction === item.mu
+                              ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 font-semibold'
+                              : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          <div className="font-medium truncate">{item.label}</div>
+                          <div className="text-[10px] text-slate-500 font-mono">μ = {item.mu.toFixed(2)}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Mass Slider */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Object Inertial Mass (m):</span>
+                      <span className="font-mono text-cyan-400 font-semibold">{n1Mass} kg</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="25"
+                      value={n1Mass}
+                      onChange={(e) => setN1Mass(parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg accent-cyan-400 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Custom Friction Slider */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Custom Friction Coeff (μ):</span>
+                      <span className="font-mono text-amber-400 font-semibold">{n1Friction.toFixed(2)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="0.6"
+                      step="0.02"
+                      value={n1Friction}
+                      onChange={(e) => setN1Friction(parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg accent-amber-400 cursor-pointer"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeSim === 'newton_second' && (
+                <div className="space-y-4">
+                  {/* Applied Force Slider */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Applied Force (F_app):</span>
+                      <span className="font-mono text-cyan-400 font-bold">{n2Force > 0 ? `+${n2Force}` : n2Force} N</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-120"
+                      max="120"
+                      step="5"
+                      value={n2Force}
+                      onChange={(e) => setN2Force(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg accent-cyan-400 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Force Presets */}
+                  <div className="flex items-center gap-1.5">
+                    {[-80, -40, 0, 40, 80].map((fVal) => (
+                      <button
+                        key={fVal}
+                        onClick={() => setN2Force(fVal)}
+                        className={`flex-1 py-1 rounded-lg font-mono text-[10px] border transition-all cursor-pointer ${
+                          n2Force === fVal
+                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {fVal > 0 ? `+${fVal}` : fVal}N
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Mass Slider */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Crate Mass (m):</span>
+                      <span className="font-mono text-amber-300 font-semibold">{n2Mass} kg</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="2"
+                      max="35"
+                      value={n2Mass}
+                      onChange={(e) => setN2Mass(parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg accent-amber-400 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Friction Slider */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Surface Friction (μ):</span>
+                      <span className="font-mono text-red-400 font-semibold">{n2Friction.toFixed(2)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.0"
+                      max="0.30"
+                      step="0.02"
+                      value={n2Friction}
+                      onChange={(e) => setN2Friction(parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg accent-red-400 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Live Formula Badge */}
+                  <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-xs space-y-1 font-mono">
+                    <div className="text-[10px] text-slate-500 uppercase font-sans">Newton's 2nd Law Calculation</div>
+                    <div className="text-emerald-400 font-bold">
+                      F_net = {Math.abs(n2Force) > (n2Friction * n2Mass * 9.81) ? (n2Force - Math.sign(n2Force) * n2Friction * n2Mass * 9.81).toFixed(1) : 0} N
+                    </div>
+                    <div className="text-cyan-300 text-[11px]">
+                      a = F_net / m = {Math.abs(n2Force) > (n2Friction * n2Mass * 9.81) ? ((n2Force - Math.sign(n2Force) * n2Friction * n2Mass * 9.81) / n2Mass).toFixed(2) : '0.00'} m/s²
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSim === 'newton_third' && (
+                <div className="space-y-4">
+                  {/* Mode switcher */}
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-950 border border-slate-800 rounded-xl">
+                    <button
+                      onClick={() => setN3Mode('astronauts')}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                        n3Mode === 'astronauts'
+                          ? 'bg-cyan-500 text-slate-950'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Astronauts on Ice
+                    </button>
+                    <button
+                      onClick={() => setN3Mode('rocket')}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                        n3Mode === 'rocket'
+                          ? 'bg-amber-500 text-slate-950'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Rocket Gas Thrust
+                    </button>
+                  </div>
+
+                  {n3Mode === 'astronauts' ? (
+                    <div className="space-y-3.5">
+                      {/* Push Force */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400">Interaction Push Force (F):</span>
+                          <span className="font-mono text-cyan-400 font-semibold">{n3PushForce} N</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="60"
+                          max="350"
+                          step="10"
+                          value={n3PushForce}
+                          onChange={(e) => setN3PushForce(parseInt(e.target.value))}
+                          className="w-full h-1.5 bg-slate-800 rounded-lg accent-cyan-400 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Astronaut A Mass */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400">Astronaut A Mass (Left):</span>
+                          <span className="font-mono text-cyan-300 font-semibold">{n3MassA} kg</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="40"
+                          max="120"
+                          value={n3MassA}
+                          onChange={(e) => setN3MassA(parseInt(e.target.value))}
+                          className="w-full h-1.5 bg-slate-800 rounded-lg accent-cyan-400 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Astronaut B Mass */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400">Astronaut B Mass (Right):</span>
+                          <span className="font-mono text-amber-300 font-semibold">{n3MassB} kg</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="50"
+                          max="180"
+                          value={n3MassB}
+                          onChange={(e) => setN3MassB(parseInt(e.target.value))}
+                          className="w-full h-1.5 bg-slate-800 rounded-lg accent-amber-400 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Push action buttons */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          onClick={() => {
+                            // Apply push impulse
+                            const dtImpulse = 0.25; // seconds
+                            const impulse = n3PushForce * dtImpulse;
+                            n3VelARef.current = -impulse / n3MassA;
+                            n3VelBRef.current = impulse / n3MassB;
+                          }}
+                          className="py-2.5 px-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-md shadow-cyan-500/20 transition-all cursor-pointer"
+                        >
+                          Trigger Push!
+                        </button>
+                        <button
+                          onClick={() => {
+                            n3PosARef.current = 290;
+                            n3PosBRef.current = 390;
+                            n3VelARef.current = 0;
+                            n3VelBRef.current = 0;
+                          }}
+                          className="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 transition-all cursor-pointer"
+                        >
+                          Reset Together
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3.5">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400">Thruster Action Force (F_thrust):</span>
+                          <span className="font-mono text-amber-400 font-semibold">{n3PushForce} N</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="50"
+                          max="400"
+                          step="10"
+                          value={n3PushForce}
+                          onChange={(e) => setN3PushForce(parseInt(e.target.value))}
+                          className="w-full h-1.5 bg-slate-800 rounded-lg accent-amber-400 cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          onClick={() => {
+                            n3RocketThrust.current = !n3RocketThrust.current;
+                          }}
+                          className={`py-2 px-3 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                            n3RocketThrust.current
+                              ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                              : 'bg-slate-800 text-slate-300 border border-slate-700'
+                          }`}
+                        >
+                          {n3RocketThrust.current ? 'Engine: FIRING' : 'Engine: OFF'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            n3RocketPosRef.current = 180;
+                            n3RocketVelRef.current = 0;
+                            n3ParticlesRef.current = [];
+                          }}
+                          className="py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 transition-all cursor-pointer"
+                        >
+                          Reset Rocket
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {activeSim === 'projectile' && (
                 <div className="space-y-4">
@@ -745,6 +1232,689 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
 };
 
 // --- Physics 2D Canvas Renderers ---
+
+function renderNewtonFirstSim(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  dt: number,
+  running: boolean,
+  params: {
+    mass: number;
+    friction: number;
+    posRef: React.MutableRefObject<number>;
+    velRef: React.MutableRefObject<number>;
+  }
+) {
+  let pos = params.posRef.current;
+  let vel = params.velRef.current;
+  const mass = params.mass;
+  const mu = params.friction;
+  const g = 9.81;
+
+  // Calculate friction deceleration
+  const normalForce = mass * g;
+  const frictionForce = mu * normalForce;
+
+  if (running) {
+    if (mu > 0 && Math.abs(vel) > 0.01) {
+      const decel = (frictionForce / mass) * dt;
+      if (Math.abs(vel) <= decel) {
+        vel = 0;
+      } else {
+        vel -= Math.sign(vel) * decel;
+      }
+    }
+    // Update position
+    pos += vel * dt * 32;
+
+    // Elastic boundary bounce
+    const minX = 65;
+    const maxX = canvas.width - 65;
+    if (pos <= minX) {
+      pos = minX;
+      vel = -vel * (mu === 0 ? 1 : 0.85);
+    } else if (pos >= maxX) {
+      pos = maxX;
+      vel = -vel * (mu === 0 ? 1 : 0.85);
+    }
+
+    params.posRef.current = pos;
+    params.velRef.current = vel;
+  }
+
+  const trackY = canvas.height - 75;
+
+  // Background environment
+  if (mu === 0) {
+    // Deep Space Zero-G Void look
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Starfield specks
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    for (let i = 0; i < 35; i++) {
+      const sx = (i * 73 + 19) % canvas.width;
+      const sy = (i * 47 + 23) % (trackY - 20);
+      ctx.fillRect(sx, sy, 1.5, 1.5);
+    }
+
+    // Glowing superconducting rail
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#06b6d4';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.moveTo(0, trackY);
+    ctx.lineTo(canvas.width, trackY);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  } else {
+    // Laboratory Test Track
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, trackY);
+    ctx.lineTo(canvas.width, trackY);
+    ctx.stroke();
+
+    // Track friction hatch marks
+    ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < canvas.width; x += 16) {
+      ctx.beginPath();
+      ctx.moveTo(x, trackY);
+      ctx.lineTo(x - 6, trackY + 12);
+      ctx.stroke();
+    }
+  }
+
+  // End padded bumpers
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(20, trackY - 35, 12, 35);
+  ctx.fillRect(canvas.width - 32, trackY - 35, 12, 35);
+
+  // Puck / Hover Vehicle
+  const puckW = 60;
+  const puckH = 26;
+  const puckY = trackY - puckH - 2;
+
+  // Hover glow under puck
+  ctx.fillStyle = mu === 0 ? 'rgba(6, 182, 212, 0.5)' : 'rgba(245, 158, 11, 0.2)';
+  ctx.shadowColor = mu === 0 ? '#06b6d4' : '#f59e0b';
+  ctx.shadowBlur = 14;
+  ctx.beginPath();
+  ctx.ellipse(pos, trackY, puckW * 0.45, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Puck body
+  ctx.fillStyle = '#1e293b';
+  ctx.strokeStyle = mu === 0 ? '#06b6d4' : '#94a3b8';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(pos - puckW / 2, puckY, puckW, puckH, 8);
+  ctx.fill();
+  ctx.stroke();
+
+  // Puck Mass Tag
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 11px "JetBrains Mono"';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${mass} kg`, pos, puckY + 16);
+
+  // Vectors on Puck
+  // 1. Normal Force (Up, Green)
+  drawArrow(ctx, pos, puckY, pos, puckY - 45, '#10b981', 'F_N');
+  // 2. Gravitational Force (Down, Blue)
+  drawArrow(ctx, pos, puckY + puckH, pos, puckY + puckH + 45, '#3b82f6', 'F_g');
+
+  // 3. Velocity Vector (Cyan, horizontal)
+  if (Math.abs(vel) > 0.05) {
+    drawArrow(ctx, pos, puckY + puckH / 2, pos + vel * 4, puckY + puckH / 2, '#22d3ee', `v = ${vel.toFixed(1)} m/s`);
+  }
+
+  // 4. Friction Force (Red, opposing velocity)
+  if (mu > 0 && Math.abs(vel) > 0.05) {
+    const fDir = -Math.sign(vel);
+    drawArrow(ctx, pos, puckY + puckH / 2, pos + fDir * 35, puckY + puckH / 2, '#ef4444', `F_f = ${frictionForce.toFixed(1)} N`);
+  }
+
+  // HUD Panel inside canvas
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  ctx.fillRect(20, 20, 310, 85);
+  ctx.strokeStyle = '#334155';
+  ctx.strokeRect(20, 20, 310, 85);
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'bold 12px "Syne", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText("NEWTON'S 1ST LAW: LAW OF INERTIA", 32, 40);
+
+  ctx.font = '11px "JetBrains Mono"';
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText(`Velocity (v): ${vel.toFixed(2)} m/s`, 32, 58);
+  ctx.fillText(`Friction (μ): ${mu.toFixed(2)} | Braking F_f: ${Math.abs(vel) > 0.01 ? frictionForce.toFixed(1) : 0} N`, 32, 74);
+  ctx.fillText(`Net Force (∑F): ${mu === 0 || Math.abs(vel) < 0.01 ? '0.0 N (BALANCED)' : `${frictionForce.toFixed(1)} N (UNBALANCED)`}`, 32, 90);
+
+  // Status Banner
+  ctx.fillStyle = mu === 0 && Math.abs(vel) > 0.05
+    ? 'rgba(6, 182, 212, 0.2)'
+    : Math.abs(vel) < 0.05
+    ? 'rgba(100, 116, 139, 0.2)'
+    : 'rgba(239, 68, 68, 0.2)';
+  ctx.strokeStyle = mu === 0 && Math.abs(vel) > 0.05 ? '#06b6d4' : Math.abs(vel) < 0.05 ? '#64748b' : '#ef4444';
+  ctx.fillRect(canvas.width - 330, 20, 310, 48);
+  ctx.strokeRect(canvas.width - 330, 20, 310, 48);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 11px "Plus Jakarta Sans", sans-serif';
+  ctx.textAlign = 'center';
+  if (mu === 0 && Math.abs(vel) > 0.05) {
+    ctx.fillText('✨ INERTIAL DRIFT: ∑F = 0', canvas.width - 175, 40);
+    ctx.font = '10px "JetBrains Mono"';
+    ctx.fillStyle = '#67e8f9';
+    ctx.fillText('v = Constant without propulsion force!', canvas.width - 175, 56);
+  } else if (Math.abs(vel) < 0.05) {
+    ctx.fillText('⚪ OBJECT AT REST (v = 0)', canvas.width - 175, 40);
+    ctx.font = '10px "JetBrains Mono"';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText('Stays at rest until net force is applied.', canvas.width - 175, 56);
+  } else {
+    ctx.fillText('⚠️ DECELERATING (Friction Acting)', canvas.width - 175, 40);
+    ctx.font = '10px "JetBrains Mono"';
+    ctx.fillStyle = '#fca5a5';
+    ctx.fillText(`Net external force a = ${(frictionForce / mass).toFixed(2)} m/s²`, canvas.width - 175, 56);
+  }
+}
+
+function renderNewtonSecondSim(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  dt: number,
+  running: boolean,
+  params: {
+    force: number;
+    mass: number;
+    friction: number;
+    posRef: React.MutableRefObject<number>;
+    velRef: React.MutableRefObject<number>;
+  }
+) {
+  let pos = params.posRef.current;
+  let vel = params.velRef.current;
+  const mass = params.mass;
+  const force = params.force;
+  const mu = params.friction;
+  const g = 9.81;
+
+  const normalForce = mass * g;
+  const maxFriction = mu * normalForce;
+
+  let netForce = 0;
+  if (Math.abs(vel) < 0.05) {
+    if (Math.abs(force) > maxFriction) {
+      netForce = force - Math.sign(force) * maxFriction;
+    } else {
+      netForce = 0;
+    }
+  } else {
+    const frictionAgainstMotion = -Math.sign(vel) * maxFriction;
+    netForce = force + frictionAgainstMotion;
+  }
+
+  const accel = netForce / mass;
+
+  if (running) {
+    vel += accel * dt;
+    // Static friction stop check
+    if (force === 0 && Math.abs(vel) < 0.1) {
+      vel = 0;
+    }
+    pos += vel * dt * 24;
+
+    const minX = 85;
+    const maxX = canvas.width - 85;
+    if (pos <= minX) {
+      pos = minX;
+      vel = -vel * 0.4;
+    } else if (pos >= maxX) {
+      pos = maxX;
+      vel = -vel * 0.4;
+    }
+
+    params.posRef.current = pos;
+    params.velRef.current = vel;
+  }
+
+  const trackY = canvas.height - 75;
+
+  // Track & background
+  ctx.fillStyle = '#090d16';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, trackY);
+  ctx.lineTo(canvas.width, trackY);
+  ctx.stroke();
+
+  // Runway distance ticks
+  ctx.strokeStyle = 'rgba(71, 85, 105, 0.4)';
+  ctx.fillStyle = '#64748b';
+  ctx.font = '9px "JetBrains Mono"';
+  ctx.textAlign = 'center';
+  for (let x = 60; x <= canvas.width - 60; x += 60) {
+    ctx.beginPath();
+    ctx.moveTo(x, trackY);
+    ctx.lineTo(x, trackY + 8);
+    ctx.stroke();
+    ctx.fillText(`${(x / 50).toFixed(0)}m`, x, trackY + 20);
+  }
+
+  // Crate Dimensions
+  const crateW = Math.min(80, Math.max(50, 40 + mass * 1.4));
+  const crateH = Math.min(70, Math.max(45, 35 + mass * 1.1));
+  const crateX = pos - crateW / 2;
+  const crateY = trackY - crateH;
+
+  // Crate shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+  ctx.beginPath();
+  ctx.ellipse(pos, trackY, crateW * 0.55, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Crate Body
+  ctx.fillStyle = '#1e293b';
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(crateX, crateY, crateW, crateH, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Crate diagonal brace lines
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.3)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(crateX + 4, crateY + 4);
+  ctx.lineTo(crateX + crateW - 4, crateY + crateH - 4);
+  ctx.moveTo(crateX + crateW - 4, crateY + 4);
+  ctx.lineTo(crateX + 4, crateY + crateH - 4);
+  ctx.stroke();
+
+  // Crate Label
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 12px "JetBrains Mono"';
+  ctx.fillText(`${mass} kg`, pos, crateY + crateH / 2 + 4);
+
+  // Pusher Figure (Robot / Student silhouette pushing the crate)
+  if (force !== 0) {
+    const isPushRight = force > 0;
+    const pusherX = isPushRight ? crateX - 22 : crateX + crateW + 22;
+    const pusherY = trackY - 32;
+
+    ctx.save();
+    ctx.fillStyle = '#06b6d4';
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 2;
+
+    // Head
+    ctx.beginPath();
+    ctx.arc(pusherX, pusherY - 20, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body
+    ctx.beginPath();
+    ctx.moveTo(pusherX, pusherY - 13);
+    ctx.lineTo(isPushRight ? pusherX + 8 : pusherX - 8, pusherY + 12);
+    ctx.stroke();
+
+    // Pushing arms
+    ctx.beginPath();
+    ctx.moveTo(pusherX, pusherY - 5);
+    ctx.lineTo(isPushRight ? crateX : crateX + crateW, pusherY - 2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // Force Vectors
+  // 1. Applied Force Arrow (Cyan)
+  if (force !== 0) {
+    const arrowLen = Math.min(110, Math.abs(force) * 0.9);
+    const startX = force > 0 ? crateX : crateX + crateW;
+    const endX = startX + Math.sign(force) * arrowLen;
+    drawArrow(ctx, startX, crateY + crateH * 0.35, endX, crateY + crateH * 0.35, '#06b6d4', `F_app = ${force} N`);
+  }
+
+  // 2. Friction Arrow (Red)
+  if (mu > 0 && (Math.abs(vel) > 0.05 || Math.abs(force) > 0)) {
+    const fDir = vel !== 0 ? -Math.sign(vel) : -Math.sign(force);
+    const fLen = Math.min(80, maxFriction * 0.8);
+    drawArrow(ctx, pos, trackY - 5, pos + fDir * fLen, trackY - 5, '#ef4444', `F_f = ${maxFriction.toFixed(1)} N`);
+  }
+
+  // 3. Resultant Acceleration Vector (Yellow, above crate)
+  if (Math.abs(accel) > 0.02) {
+    const aLen = Math.min(90, Math.abs(accel) * 14);
+    drawArrow(ctx, pos, crateY - 18, pos + Math.sign(accel) * aLen, crateY - 18, '#facc15', `a = ${accel.toFixed(2)} m/s²`);
+  }
+
+  // Top Equation Board HUD
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+  ctx.fillRect(20, 20, 420, 88);
+  ctx.strokeStyle = '#334155';
+  ctx.strokeRect(20, 20, 420, 88);
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'bold 12px "Syne", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText("NEWTON'S 2ND LAW: F_net = m · a", 32, 40);
+
+  ctx.font = '12px "JetBrains Mono"';
+  ctx.fillStyle = '#10b981';
+  ctx.fillText(`F_net = ${netForce.toFixed(1)} N  |  m = ${mass} kg`, 32, 60);
+
+  ctx.fillStyle = '#facc15';
+  ctx.fillText(`a = F_net / m = ${accel.toFixed(2)} m/s²  |  v = ${vel.toFixed(1)} m/s`, 32, 80);
+
+  ctx.font = '10px "JetBrains Mono"';
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText(`Applied: ${force} N  |  Friction: ${maxFriction.toFixed(1)} N`, 32, 98);
+}
+
+function renderNewtonThirdSim(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  dt: number,
+  running: boolean,
+  params: {
+    mode: 'astronauts' | 'rocket';
+    massA: number;
+    massB: number;
+    pushForce: number;
+    posARef: React.MutableRefObject<number>;
+    posBRef: React.MutableRefObject<number>;
+    velARef: React.MutableRefObject<number>;
+    velBRef: React.MutableRefObject<number>;
+    rocketPosRef: React.MutableRefObject<number>;
+    rocketVelRef: React.MutableRefObject<number>;
+    particlesRef: React.MutableRefObject<{ x: number; y: number; vx: number; vy: number; life: number; color: string }[]>;
+  }
+) {
+  const { mode, massA, massB, pushForce } = params;
+
+  if (mode === 'astronauts') {
+    let posA = params.posARef.current;
+    let posB = params.posBRef.current;
+    let velA = params.velARef.current;
+    let velB = params.velBRef.current;
+
+    if (running) {
+      posA += velA * dt * 26;
+      posB += velB * dt * 26;
+
+      // Soft rebound from walls
+      if (posA <= 50) {
+        posA = 50;
+        velA = -velA * 0.9;
+      }
+      if (posB >= canvas.width - 50) {
+        posB = canvas.width - 50;
+        velB = -velB * 0.9;
+      }
+
+      params.posARef.current = posA;
+      params.posBRef.current = posB;
+      params.velARef.current = velA;
+      params.velBRef.current = velB;
+    }
+
+    const trackY = canvas.height - 75;
+
+    // Space / Frictionless Ice Floor
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, trackY);
+    ctx.lineTo(canvas.width, trackY);
+    ctx.stroke();
+
+    // Draw Astronaut A (Cyan Suit)
+    drawAstronaut(ctx, posA, trackY, massA, '#06b6d4', 'Astronaut A', velA);
+
+    // Draw Astronaut B (Amber Suit)
+    drawAstronaut(ctx, posB, trackY, massB, '#f59e0b', 'Astronaut B', velB);
+
+    // Action-Reaction Equal & Opposite Force Arrows
+    const midX = (posA + posB) / 2;
+    const arrowY = trackY - 60;
+
+    // Force on A by B (pointing left)
+    drawArrow(ctx, midX, arrowY, midX - 80, arrowY, '#06b6d4', `F_{B→A} = -${pushForce} N`);
+    // Force on B by A (pointing right)
+    drawArrow(ctx, midX, arrowY, midX + 80, arrowY, '#f59e0b', `F_{A→B} = +${pushForce} N`);
+
+    // Top HUD
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+    ctx.fillRect(20, 20, canvas.width - 40, 75);
+    ctx.strokeStyle = '#334155';
+    ctx.strokeRect(20, 20, canvas.width - 40, 75);
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 12px "Syne", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText("NEWTON'S 3RD LAW: F_{A → B} = -F_{B → A} (ACTION & REACTION)", 32, 40);
+
+    ctx.font = '11px "JetBrains Mono"';
+    ctx.fillStyle = '#22d3ee';
+    ctx.fillText(`Astronaut A (${massA} kg): a_A = -${(pushForce / massA).toFixed(2)} m/s² | v_A = ${velA.toFixed(1)} m/s`, 32, 60);
+
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillText(`Astronaut B (${massB} kg): a_B = +${(pushForce / massB).toFixed(2)} m/s² | v_B = ${velB.toFixed(1)} m/s`, 32, 78);
+
+    ctx.textAlign = 'right';
+    const pTotal = massA * velA + massB * velB;
+    ctx.fillStyle = '#10b981';
+    ctx.fillText(`Total Momentum: ${pTotal.toFixed(2)} kg·m/s (Conserved)`, canvas.width - 40, 60);
+  } else {
+    // Rocket Propulsion Mode
+    let rX = params.rocketPosRef.current;
+    let rV = params.rocketVelRef.current;
+    const rY = canvas.height / 2;
+    const rMass = 250; // kg
+
+    // Background deep space
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Stars
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    for (let i = 0; i < 40; i++) {
+      const sx = (i * 97 + 13) % canvas.width;
+      const sy = (i * 59 + 29) % canvas.height;
+      ctx.fillRect(sx, sy, 1.5, 1.5);
+    }
+
+    if (running) {
+      const rAccel = pushForce / rMass;
+      rV += rAccel * dt;
+      rX += rV * dt * 20;
+
+      // Wrap rocket across screen
+      if (rX > canvas.width + 80) {
+        rX = -60;
+      }
+
+      // Generate exhaust fire/gas particles backward
+      const particles = params.particlesRef.current;
+      for (let p = 0; p < 4; p++) {
+        particles.push({
+          x: rX - 45,
+          y: rY + (Math.random() - 0.5) * 12,
+          vx: -(Math.random() * 180 + 160),
+          vy: (Math.random() - 0.5) * 45,
+          life: 1.0,
+          color: p % 2 === 0 ? '#f97316' : '#facc15'
+        });
+      }
+
+      // Update particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const pt = particles[i];
+        pt.x += pt.vx * dt;
+        pt.y += pt.vy * dt;
+        pt.life -= dt * 2.2;
+        if (pt.life <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+
+      params.rocketPosRef.current = rX;
+      params.rocketVelRef.current = rV;
+    }
+
+    // Render exhaust particles
+    params.particlesRef.current.forEach((pt) => {
+      ctx.fillStyle = pt.color;
+      ctx.globalAlpha = pt.life;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, (1 - pt.life) * 10 + 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+
+    // Draw Rocket Body
+    ctx.save();
+    ctx.translate(rX, rY);
+
+    // Rocket Hull
+    ctx.fillStyle = '#e2e8f0';
+    ctx.beginPath();
+    ctx.moveTo(40, 0); // Nose cone
+    ctx.lineTo(-30, -18);
+    ctx.lineTo(-30, 18);
+    ctx.closePath();
+    ctx.fill();
+
+    // Cockpit window
+    ctx.fillStyle = '#06b6d4';
+    ctx.beginPath();
+    ctx.arc(10, 0, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rocket fins
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.moveTo(-20, -18);
+    ctx.lineTo(-40, -32);
+    ctx.lineTo(-30, -18);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(-20, 18);
+    ctx.lineTo(-40, 32);
+    ctx.lineTo(-30, 18);
+    ctx.fill();
+
+    ctx.restore();
+
+    // Draw Force Vectors
+    // Action: Exhaust gas force pointing backward
+    drawArrow(ctx, rX - 45, rY, rX - 140, rY, '#f97316', `ACTION: Gas Pushed Back (-${pushForce} N)`);
+    // Reaction: Forward thrust propelling rocket forward
+    drawArrow(ctx, rX + 40, rY, rX + 130, rY, '#22d3ee', `REACTION: Thrust (+${pushForce} N)`);
+
+    // Top HUD
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+    ctx.fillRect(20, 20, canvas.width - 40, 75);
+    ctx.strokeStyle = '#334155';
+    ctx.strokeRect(20, 20, canvas.width - 40, 75);
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 12px "Syne", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText("ROCKET REACTION PROPULSION IN VACUUM SPACE", 32, 40);
+
+    ctx.font = '11px "JetBrains Mono"';
+    ctx.fillStyle = '#f97316';
+    ctx.fillText(`ACTION: Engine pushes exhaust gas particles backward with Force -${pushForce} N`, 32, 60);
+
+    ctx.fillStyle = '#22d3ee';
+    ctx.fillText(`REACTION: Gas particles push rocket hull forward with equal Force +${pushForce} N (v = ${rV.toFixed(1)} m/s)`, 32, 78);
+  }
+}
+
+function drawAstronaut(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  groundY: number,
+  mass: number,
+  color: string,
+  label: string,
+  vel: number
+) {
+  const h = 55;
+  const y = groundY - h;
+
+  ctx.save();
+  // Shadow
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+  ctx.beginPath();
+  ctx.ellipse(x, groundY, 18, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Spacesuit Legs
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(x - 6, y + 35);
+  ctx.lineTo(x - 7, groundY);
+  ctx.moveTo(x + 6, y + 35);
+  ctx.lineTo(x + 7, groundY);
+  ctx.stroke();
+
+  // Torso / Life Support Pack
+  ctx.fillStyle = '#1e293b';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(x - 14, y + 15, 28, 24, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Helmet
+  ctx.fillStyle = '#334155';
+  ctx.beginPath();
+  ctx.arc(x, y + 8, 12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Visor gold reflection
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath();
+  ctx.ellipse(x + 2, y + 8, 7, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Label & mass badge
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 10px "Plus Jakarta Sans"';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, x, y - 8);
+
+  ctx.fillStyle = color;
+  ctx.font = '9px "JetBrains Mono"';
+  ctx.fillText(`${mass} kg | v=${vel.toFixed(1)}`, x, y + 30);
+
+  ctx.restore();
+}
 
 function renderProjectileSim(
   ctx: CanvasRenderingContext2D,

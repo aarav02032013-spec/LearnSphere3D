@@ -65,10 +65,20 @@ export const LabGuideModal: React.FC<LabGuideModalProps> = ({ isOpen, onClose })
             </p>
           </div>
 
+          <div className="p-3.5 bg-slate-950/60 rounded-xl border border-cyan-500/40 space-y-1.5 bg-cyan-950/20">
+            <h4 className="font-semibold text-cyan-300 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cyan-400" />
+              4. Atomic Foundation (Periodic Table & Atomic Models)
+            </h4>
+            <p className="text-slate-400">
+              Explore the complete 118-element IUPAC Periodic Table. Select any element to inspect its <strong>Bohr Model</strong> with dynamic orbiting electrons, valence electrons, Lewis dot diagrams, and exact <strong>K, L, M, N</strong> shell distributions. Switch to the <strong>Quantum Mechanics</strong> tab to visualize 3D electron probability clouds (s, p, d, f orbitals), Aufbau energy ladders, and Hund's rule spin boxes.
+            </p>
+          </div>
+
           <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/80 space-y-1.5">
             <h4 className="font-semibold text-cyan-300 flex items-center gap-2">
               <Compass className="w-4 h-4 text-cyan-400" />
-              4. Physics Simulations & Comprehension Quizzes
+              5. Physics Simulations & Comprehension Quizzes
             </h4>
             <p className="text-slate-400">
               Simulate projectile ballistics across different planetary gravities, 1D momentum conservation in cart collisions, Keplerian orbital gravity, and harmonic pendulums. Click <strong>Test Understanding</strong> to take a real-time comprehension quiz tailored to your simulation!
@@ -78,7 +88,7 @@ export const LabGuideModal: React.FC<LabGuideModalProps> = ({ isOpen, onClose })
           <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/80 space-y-1.5">
             <h4 className="font-semibold text-cyan-300 flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-cyan-400" />
-              5. Permanent Personal Notes
+              6. Permanent Personal Notes
             </h4>
             <p className="text-slate-400">
               Every simulation and 3D model features a <strong>"Save to Notes"</strong> button that automatically logs formulas, telemetry, and experiment observations directly to your browser storage. You can create custom notes, search tags, export as JSON, or print study sheets.

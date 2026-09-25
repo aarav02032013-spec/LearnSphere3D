@@ -4,6 +4,7 @@ import { Model3DViewer } from './components/Model3DViewer';
 import { AdvancedLab } from './components/AdvancedLab';
 import { ChemistryLab } from './components/ChemistryLab';
 import { PhysicsSimulations } from './components/PhysicsSimulations';
+import { AtomicFoundation } from './components/AtomicFoundation/AtomicFoundation';
 import { NotesSection } from './components/NotesSection';
 import { LabGuideModal } from './components/LabGuideModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -16,7 +17,7 @@ const LEGACY_STORAGE_NOTES_KEY = 'omnilearn_student_notes_v1';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<
-    'learning' | 'advanced_lab' | 'chemistry' | 'physics' | 'notes'
+    'learning' | 'atomic_foundation' | 'advanced_lab' | 'chemistry' | 'physics' | 'notes'
   >('learning');
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel | 'all'>('all');
   const [guideOpen, setGuideOpen] = useState<boolean>(false);
@@ -110,6 +111,8 @@ export default function App() {
           fallbackTitle={`Error in ${
             activeSection === 'learning'
               ? '3D Interactive Learning'
+              : activeSection === 'atomic_foundation'
+              ? 'Atomic Foundation & Periodic Lab'
               : activeSection === 'advanced_lab'
               ? 'Advanced Virtual Lab'
               : activeSection === 'chemistry'
@@ -125,6 +128,10 @@ export default function App() {
               selectedGrade={selectedGrade}
               onAddNote={handleAddNote}
             />
+          )}
+
+          {activeSection === 'atomic_foundation' && (
+            <AtomicFoundation onAddNote={handleAddNote} />
           )}
 
           {activeSection === 'advanced_lab' && (

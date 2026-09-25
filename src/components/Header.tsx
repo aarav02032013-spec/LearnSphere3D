@@ -3,8 +3,8 @@ import { HelpCircle, Sparkles, BookOpen } from 'lucide-react';
 import { GradeLevel } from '../types';
 
 interface HeaderProps {
-  activeSection: 'learning' | 'advanced_lab' | 'chemistry' | 'physics' | 'notes';
-  setActiveSection: (sec: 'learning' | 'advanced_lab' | 'chemistry' | 'physics' | 'notes') => void;
+  activeSection: 'learning' | 'advanced_lab' | 'chemistry' | 'physics' | 'atomic_foundation' | 'notes';
+  setActiveSection: (sec: 'learning' | 'advanced_lab' | 'chemistry' | 'physics' | 'atomic_foundation' | 'notes') => void;
   selectedGrade: GradeLevel | 'all';
   setSelectedGrade: (grade: GradeLevel | 'all') => void;
   onOpenGuide: () => void;
@@ -19,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const navItems = [
     { id: 'learning', label: '3D Learning' },
+    { id: 'atomic_foundation', label: 'Atomic Foundation' },
     { id: 'advanced_lab', label: 'Advanced 3D Lab' },
     { id: 'chemistry', label: 'Chemistry Lab' },
     { id: 'physics', label: 'Physics Simulations' },

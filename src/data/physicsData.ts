@@ -205,3 +205,156 @@ export function generatePendulumQuiz(
     }
   ];
 }
+
+export function generateNewtonFirstQuiz(
+  mass: number,
+  frictionCoeff: number,
+  velocity: number
+): QuizQuestion[] {
+  return [
+    {
+      id: 'q_n1_1',
+      prompt: `According to Newton's First Law (Law of Inertia), what will happen to an object moving at ${velocity > 0 ? velocity : 5} m/s in deep space where net external force is exactly zero (∑F = 0)?`,
+      options: [
+        'It continues moving in a straight line at constant velocity indefinitely',
+        'It gradually slows down and stops on its own',
+        'It spirals into circular motion',
+        'Its speed increases without any external force'
+      ],
+      correctIndex: 0,
+      explanation: `Newton's First Law states that an object in motion continues with constant velocity in a straight line unless acted upon by a net external unbalanced force. In deep space with ∑F = 0, acceleration is zero (a = 0).`,
+      formulaUsed: '∑F = 0 ⟹ a = 0, v = constant'
+    },
+    {
+      id: 'q_n1_2',
+      prompt: `A block of mass ${mass} kg is sliding on a surface with friction coefficient μ = ${frictionCoeff}. Why does it decelerate and come to rest?`,
+      options: [
+        `Friction exerts an unbalanced external braking force (F_f = μ·m·g = ${(frictionCoeff * mass * 9.81).toFixed(1)} N)`,
+        'The object naturally runs out of inertia',
+        'Gravity pulls backward on the object',
+        'Objects in motion possess a natural desire to rest'
+      ],
+      correctIndex: 0,
+      explanation: `Aristotle incorrectly believed objects naturally stop. Galileo and Newton proved objects only stop because an external opposing contact force (friction F_f = μ·N) acts upon them.`,
+      formulaUsed: 'F_net = -F_friction = -μ·m·g'
+    },
+    {
+      id: 'q_n1_3',
+      prompt: `When a car turns sharply to the left, passengers feel thrown towards the right door. What real force is throwing them outward?`,
+      options: [
+        'No real outward force: their inertia wants to keep moving in a straight line while the car turns beneath them',
+        'A mysterious centrifugal gravity force',
+        'Frictional force from the seat pushing rightward',
+        'Air pressure inside the vehicle'
+      ],
+      correctIndex: 0,
+      explanation: `Passengers feel a tendency to continue in their original straight-line trajectory due to inertia. The car accelerates leftward into the turn, requiring the car door or seatbelt to exert a real inward centripetal force.`,
+      formulaUsed: 'Inertia maintains straight-line momentum'
+    }
+  ];
+}
+
+export function generateNewtonSecondQuiz(
+  appliedForce: number,
+  mass: number,
+  frictionCoeff: number
+): QuizQuestion[] {
+  const normalForce = mass * 9.81;
+  const fFriction = frictionCoeff * normalForce;
+  const netForce = Math.max(0, Math.abs(appliedForce) - fFriction);
+  const accel = netForce / mass;
+
+  return [
+    {
+      id: 'q_n2_1',
+      prompt: `If a net horizontal force of ${appliedForce} N is applied to a mass of ${mass} kg on a frictionless surface, what is the resulting acceleration?`,
+      options: [
+        `${(Math.abs(appliedForce) / mass).toFixed(2)} m/s²`,
+        `${(Math.abs(appliedForce) * mass).toFixed(1)} m/s²`,
+        `${(mass / Math.max(1, Math.abs(appliedForce))).toFixed(2)} m/s²`,
+        `${(Math.abs(appliedForce) + mass).toFixed(1)} m/s²`
+      ],
+      correctIndex: 0,
+      explanation: `By Newton's Second Law, acceleration equals net force divided by mass: a = F_net / m = ${Math.abs(appliedForce)} N / ${mass} kg = ${(Math.abs(appliedForce) / mass).toFixed(2)} m/s².`,
+      formulaUsed: 'F_net = m · a ⟹ a = F_net / m'
+    },
+    {
+      id: 'q_n2_2',
+      prompt: `If the net force on an object is tripled while its mass is doubled, what happens to its acceleration?`,
+      options: [
+        'It increases by a factor of 1.5× (ratio 3/2)',
+        'It increases by 6× (3 × 2)',
+        'It remains unchanged',
+        'It decreases to 0.67× (ratio 2/3)'
+      ],
+      correctIndex: 0,
+      explanation: `From a = F / m, scaling F by 3 and m by 2 yields a_new = (3F) / (2m) = (3/2) · a = 1.5 · a.`,
+      formulaUsed: 'a ∝ F_net / m'
+    },
+    {
+      id: 'q_n2_3',
+      prompt: `A 10 kg box is pushed with F_applied = 50 N on a floor where friction is F_friction = 20 N. What is the net acceleration?`,
+      options: [
+        '3.0 m/s² (from F_net = 50 - 20 = 30 N)',
+        '5.0 m/s² (ignores friction)',
+        '2.0 m/s²',
+        '7.0 m/s²'
+      ],
+      correctIndex: 0,
+      explanation: `Net force is the vector sum: F_net = F_applied - F_friction = 50 N - 20 N = 30 N forward. Then a = F_net / m = 30 N / 10 kg = 3.0 m/s².`,
+      formulaUsed: 'F_net = F_app - F_f ⟹ a = F_net / m'
+    }
+  ];
+}
+
+export function generateNewtonThirdQuiz(
+  massA: number,
+  massB: number,
+  pushForce: number
+): QuizQuestion[] {
+  const accelA = pushForce / massA;
+  const accelB = pushForce / massB;
+
+  return [
+    {
+      id: 'q_n3_1',
+      prompt: `Astronaut A (${massA} kg) pushes Astronaut B (${massB} kg) on frictionless ice with a force of ${pushForce} N. What force does Astronaut B exert on Astronaut A?`,
+      options: [
+        `Exactly ${pushForce} N in the opposite direction`,
+        `${(pushForce * (massB / massA)).toFixed(1)} N depending on mass ratio`,
+        `0 N because Astronaut B did not actively push`,
+        `${(pushForce / 2).toFixed(1)} N (split equally)`
+      ],
+      correctIndex: 0,
+      explanation: `By Newton's Third Law (Action-Reaction), forces always occur in matched pairs of equal magnitude and opposite direction: F_{B on A} = -F_{A on B} = ${pushForce} N.`,
+      formulaUsed: 'F_{A → B} = -F_{B → A}'
+    },
+    {
+      id: 'q_n3_2',
+      prompt: `In the push above with ${pushForce} N, what are the resulting accelerations for Astronaut A (${massA} kg) and Astronaut B (${massB} kg)?`,
+      options: [
+        `a_A = ${accelA.toFixed(2)} m/s², a_B = ${accelB.toFixed(2)} m/s² (lighter astronaut accelerates faster!)`,
+        `Both accelerate at identical rates of ${(pushForce / (massA + massB)).toFixed(2)} m/s²`,
+        `Only Astronaut B accelerates because A did the pushing`,
+        `a_A = 0 m/s², a_B = ${accelB.toFixed(2)} m/s²`
+      ],
+      correctIndex: 0,
+      explanation: `Even though forces are equal and opposite (${pushForce} N each), each body's acceleration is governed by its own mass (a = F / m). Thus a_A = ${pushForce} / ${massA} = ${accelA.toFixed(2)} m/s² and a_B = ${pushForce} / ${massB} = ${accelB.toFixed(2)} m/s².`,
+      formulaUsed: 'a_A = F / m_A,  a_B = F / m_B'
+    },
+    {
+      id: 'q_n3_3',
+      prompt: `Why do action and reaction forces NEVER cancel each other out to produce zero motion?`,
+      options: [
+        'Because they act on two different, distinct objects, not on the same object',
+        'Because one force occurs a microsecond after the other',
+        'Because the reaction force is always slightly weaker than the action force',
+        'They do cancel out if both objects are at rest'
+      ],
+      correctIndex: 0,
+      explanation: `Forces only cancel when opposing forces act on the EXACT SAME object (e.g. gravity and normal force on a table). Action-reaction pairs act on two separate bodies (F_{1 on 2} and F_{2 on 1}), so each body accelerates according to its individual net force.`,
+      formulaUsed: 'Action on Object 1 ≠ Reaction on Object 2'
+    }
+  ];
+}
+

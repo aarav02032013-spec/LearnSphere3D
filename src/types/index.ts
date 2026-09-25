@@ -82,7 +82,14 @@ export interface ReactionResult {
   safetyNote: string;
 }
 
-export type PhysicsSimType = 'projectile' | 'collision' | 'gravity' | 'pendulum';
+export type PhysicsSimType = 
+  | 'newton_first'
+  | 'newton_second'
+  | 'newton_third'
+  | 'projectile' 
+  | 'collision' 
+  | 'gravity' 
+  | 'pendulum';
 
 export interface QuizQuestion {
   id: string;
