@@ -1,6 +1,6 @@
 {
   "name": "LearnSphere 3D - Interactive STEM & Spatial Science Lab",
-  "description": "An interactive education platform featuring 3D Biology & Math models by class, an Advanced 3D Technology Lab, a safe Chemistry reaction simulator, Physics motion experiments with auto-quizzes, and a permanent Notes organizer.",
+  "description": "An interactive STEM platform featuring Visual Learning with 3D NCERT diagrams (Classes 6–12), Atomic Foundation periodic lab, Advanced 3D Tech Lab, Chemistry reaction simulator, Physics motion experiments, and persistent study notes.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

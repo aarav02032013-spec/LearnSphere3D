@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
+import { VisualLearning } from './components/VisualLearning/VisualLearning';
 import { Model3DViewer } from './components/Model3DViewer';
 import { AdvancedLab } from './components/AdvancedLab';
 import { ChemistryLab } from './components/ChemistryLab';
@@ -17,8 +18,8 @@ const LEGACY_STORAGE_NOTES_KEY = 'omnilearn_student_notes_v1';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<
-    'learning' | 'atomic_foundation' | 'advanced_lab' | 'chemistry' | 'physics' | 'notes'
-  >('learning');
+    'visual_learning' | 'learning' | 'atomic_foundation' | 'advanced_lab' | 'chemistry' | 'physics' | 'notes'
+  >('visual_learning');
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel | 'all'>('all');
   const [guideOpen, setGuideOpen] = useState<boolean>(false);
 
@@ -109,7 +110,9 @@ export default function App() {
         <ErrorBoundary
           key={activeSection}
           fallbackTitle={`Error in ${
-            activeSection === 'learning'
+            activeSection === 'visual_learning'
+              ? 'Visual Learning (NCERT 3D Diagrams)'
+              : activeSection === 'learning'
               ? '3D Interactive Learning'
               : activeSection === 'atomic_foundation'
               ? 'Atomic Foundation & Periodic Lab'
@@ -123,6 +126,10 @@ export default function App() {
           }`}
           fallbackMessage="An unexpected error occurred while rendering this educational module. You can reset this section or refresh the page."
         >
+          {activeSection === 'visual_learning' && (
+            <VisualLearning onAddNote={handleAddNote} />
+          )}
+
           {activeSection === 'learning' && (
             <Model3DViewer
               selectedGrade={selectedGrade}
