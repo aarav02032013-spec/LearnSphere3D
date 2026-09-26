@@ -785,10 +785,13 @@ function extractCleanTopicQuery(question: string): string {
   return question
     .replace(/^(hi|hello|hey|lumi|please|can you|could you|would you|help me)\s+/gi, '')
     .replace(
-      /^(what\s+is\s+(an?\s+|the\s+)?(role\s+of\s+|function\s+of\s+|formula\s+of\s+|meaning\s+of\s+|importance\s+of\s+|use\s+of\s+)?|what\s+are\s+(the\s+)?|what\s+happens\s+when\s+|why\s+(is|are|do|does|did|can|should)\s+(an?\s+|the\s+)?|how\s+(does|do|is|are|can|many|much|to)\s+(an?\s+|the\s+)?|who\s+(discovered|invented|proposed|found|was|is)\s+(an?\s+|the\s+)?|when\s+(was|did|is)\s+|where\s+(is|are|does|do)\s+|define\s+|explain\s+(to\s+me\s+)?(about\s+|the\s+)?|tell\s+me\s+about\s+|describe\s+|state\s+(the\s+)?|write\s+(a\s+)?(short\s+)?note(s)?\s+on\s+|give\s+(me\s+)?(an?\s+)?(example|notes)\s+(of|on)\s+|derive\s+(the\s+)?)/i,
+      /^(what\s+is\s+(an?\s+|the\s+)?(role\s+of\s+|function\s+of\s+|formula\s+of\s+|meaning\s+of\s+|importance\s+of\s+|use\s+of\s+|principle\s+of\s+|cause\s+of\s+)?|what\s+are\s+(the\s+)?|what\s+happens\s+(when|if|during)\s+|why\s+(is|are|do|does|did|can|should)\s+(an?\s+|the\s+)?|how\s+(does|do|is|are|can|many|much|to)\s+(an?\s+|the\s+)?|who\s+(discovered|invented|proposed|found|was|is)\s+(an?\s+|the\s+)?|when\s+(was|did|is)\s+|where\s+(is|are|does|do)\s+|define\s+(the\s+)?|explain\s+(to\s+me\s+)?(why\s+|how\s+|what\s+|about\s+|the\s+)?|tell\s+me\s+about\s+|describe\s+(the\s+)?|state\s+(and\s+explain\s+)?(the\s+)?|write\s+(a\s+)?(short\s+)?note(s)?\s+on\s+|give\s+(me\s+)?(an?\s+)?(example|notes|formula|definition)\s+(of|on|for)\s+|derive\s+(the\s+)?)/i,
       ''
     )
-    .replace(/\s+(work|works|happen|happens|in\s+science|in\s+chemistry|in\s+physics|in\s+biology|in\s+detail|simply|step\s+by\s+step|in\s+short|briefly)\??$/i, '')
+    .replace(
+      /\s+(and\s+(its|their)\s+(formula|uses|applications|examples|types|derivation|importance|function|functions)|with\s+(an?\s+)?(example|examples|formula|diagram)|for\s+class\s+\d+|in\s+ncert|work|works|happen|happens|in\s+science|in\s+chemistry|in\s+physics|in\s+biology|in\s+mathematics|in\s+detail|simply|step\s+by\s+step|in\s+short|briefly)\??$/i,
+      ''
+    )
     .replace(/[?!.]+$/g, '')
     .trim();
 }
@@ -1008,7 +1011,58 @@ Keep your explanation clear, structured, and concise (120–220 words) using ## 
     }
   }
 
-  // 2. Zero-Key Cloud AI Relay for GitHub Pages (compact payload + 45s timeout so reasoning models never get cut off)
+  // 2. Zero-Key HuggingFace Dedicated TGI Relay (fast ~3s, CORS-enabled for *.github.io)
+  try {
+    const hfPrompt = `${systemPrompt}\n\nStudent Question: ${req.message.trim()}\n\nLumi's Response:`;
+    const postCtrl = new AbortController();
+    const postTimer = setTimeout(() => postCtrl.abort(), 10000);
+    const postRes = await fetch(
+      'https://huggingface-projects-llama-3-2-3b-instruct.hf.space/gradio_api/call/generate',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: [hfPrompt, 600, 0.6, 0.9, 50, 1.2]
+        }),
+        signal: postCtrl.signal
+      }
+    );
+    clearTimeout(postTimer);
+
+    if (postRes.ok) {
+      const postJson = await postRes.json();
+      const eventId = postJson?.event_id;
+      if (eventId) {
+        const streamCtrl = new AbortController();
+        const streamTimer = setTimeout(() => streamCtrl.abort(), 18000);
+        const streamRes = await fetch(
+          `https://huggingface-projects-llama-3-2-3b-instruct.hf.space/gradio_api/call/generate/${eventId}`,
+          { signal: streamCtrl.signal }
+        );
+        clearTimeout(streamTimer);
+
+        if (streamRes.ok) {
+          const sseText = await streamRes.text();
+          // Extract the last complete data: [...] payload from the SSE stream
+          const dataMatches = [...sseText.matchAll(/^data:\s*(\[[\s\S]*?\])\s*$/gm)];
+          for (let i = dataMatches.length - 1; i >= 0; i--) {
+            try {
+              const parsed = JSON.parse(dataMatches[i][1]);
+              if (Array.isArray(parsed) && typeof parsed[0] === 'string' && parsed[0].trim().length > 35) {
+                return cleanAIMathFormatting(parsed[0].trim());
+              }
+            } catch {
+              // Check previous SSE data frame
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Fall through to secondary cloud relay
+  }
+
+  // 3. Secondary Cloud AI Relay (Pollinations OpenAI endpoint with short 8s timeout)
   const compactHistory = req.history.slice(-2).map((h) => ({
     role: h.role === 'model' ? 'assistant' : 'user',
     content: h.text.slice(0, 300)
@@ -1020,68 +1074,34 @@ Keep your explanation clear, structured, and concise (120–220 words) using ## 
     { role: 'user', content: req.message }
   ];
 
-  const relayModels = ['openai-fast', 'openai'];
-  for (let i = 0; i < relayModels.length; i++) {
-    const relayModel = relayModels[i];
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000);
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-      const response = await fetch('https://text.pollinations.ai/openai', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json'
-        },
-        body: JSON.stringify({
-          model: relayModel,
-          messages,
-          temperature: 0.6
-        }),
-        signal: controller.signal
-      });
+    const response = await fetch('https://text.pollinations.ai/openai', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'openai-fast',
+        messages,
+        temperature: 0.6
+      }),
+      signal: controller.signal
+    });
 
-      clearTimeout(timeoutId);
+    clearTimeout(timeoutId);
 
-      if (response.status === 429) {
-        // Anonymous concurrency limit is 1; wait 2.5s before retrying
-        await new Promise((r) => setTimeout(r, 2500));
-        continue;
-      }
-
-      if (!response.ok) continue;
-      const rawText = await response.text();
-      const trimmed = rawText.trim();
-      if (!trimmed || trimmed.startsWith('<')) continue;
-
-      if (trimmed.startsWith('{')) {
-        const data = JSON.parse(trimmed);
+    if (response.ok) {
+      const rawText = (await response.text()).trim();
+      if (rawText.startsWith('{')) {
+        const data = JSON.parse(rawText);
         const aiContent = data?.choices?.[0]?.message?.content;
         if (typeof aiContent === 'string' && aiContent.trim().length > 20) {
           return cleanAIMathFormatting(aiContent);
         }
-      } else if (trimmed.length > 25 && !trimmed.startsWith('{"error"')) {
-        return cleanAIMathFormatting(trimmed);
-      }
-    } catch {
-      await new Promise((r) => setTimeout(r, 1500));
-    }
-  }
-
-  // 3. Secondary Fast GET Cloud AI Fallback for Static Hosts
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 35000);
-    const getPrompt = `You are Lumi, an encouraging ${req.gradeBand} ${req.subject} tutor. Answer concisely (150 words) using Markdown headings and bullet points (no LaTeX $$): ${req.message}`;
-    const getUrl = `https://text.pollinations.ai/${encodeURIComponent(getPrompt)}?model=openai-fast`;
-
-    const getRes = await fetch(getUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (getRes.ok) {
-      const text = (await getRes.text()).trim();
-      if (text && text.length > 25 && !text.startsWith('<') && !text.startsWith('{"error"')) {
-        return cleanAIMathFormatting(text);
       }
     }
   } catch {
@@ -1180,16 +1200,20 @@ Lumi's Study Tip: In board exams, always write "Difference Between" answers in a
     const results: Array<{ title: string; snippet: string }> = searchData?.query?.search || [];
     if (results.length === 0) return null;
 
-    // Pick the best academic match (prefer science/chemistry/physics/biology/math article if disambiguated)
+    // Pick the best academic match: prefer exact title match first, then science/STEM match
+    const cleanLower = cleanTopic.toLowerCase();
     const bestResult =
+      results.find((r) => r.title.toLowerCase() === cleanLower) ||
+      results.find((r) => cleanLower.includes(r.title.toLowerCase()) || r.title.toLowerCase().includes(cleanLower.split(/\s+/)[0])) ||
       results.find((r) =>
         /(chemistry|physics|biology|mathematics|atom|molecule|cell|force|energy|law|theorem)/i.test(
           r.title + ' ' + r.snippet
         )
-      ) || results[0];
+      ) ||
+      results[0];
 
-    // 2. Fetch the plain-text extract of the article
-    const extractUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(
+    // 2. Fetch up to 3,200 chars of plain-text extract (not restricted to short disambiguation intros)
+    const extractUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exchars=3200&explaintext=1&redirects=1&titles=${encodeURIComponent(
       bestResult.title
     )}&format=json&origin=*`;
 
@@ -1202,40 +1226,41 @@ Lumi's Study Tip: In board exams, always write "Difference Between" answers in a
 
     if (!rawExtract || rawExtract.length < 40) return null;
 
-    // Split extract into clean paragraphs and sentences for a structured study guide
-    const paragraphs = rawExtract
+    // Clean section markers like "== History ==" from full-text extract
+    const cleanedParagraphs = rawExtract
+      .replace(/==+\s*[^=]+\s*==+/g, '\n')
       .split(/\n+/)
       .map((p) => p.trim())
-      .filter((p) => p.length > 20);
+      .filter((p) => p.length > 30 && !/may refer to:/i.test(p));
 
-    const leadParagraph = paragraphs[0] || rawExtract;
-    const additionalSentences = paragraphs
-      .slice(1, 4)
+    const leadParagraph = cleanedParagraphs[0] || rawExtract;
+    const additionalSentences = cleanedParagraphs
+      .slice(1, 5)
       .flatMap((p) => p.split(/(?<=\.)\s+/))
-      .filter((s) => s.length > 25)
+      .filter((s) => s.length > 25 && s.length < 320)
       .slice(0, 6);
 
     const keyPointsBullets =
       additionalSentences.length > 0
-        ? additionalSentences.map((s) => `- ${s}`).join('\n')
+        ? additionalSentences.map((s) => `- ${cleanAIMathFormatting(s)}`).join('\n')
         : leadParagraph
             .split(/(?<=\.)\s+/)
             .slice(1, 5)
-            .map((s) => `- ${s}`)
+            .map((s) => `- ${cleanAIMathFormatting(s)}`)
             .join('\n');
 
     return `## ${firstPage?.title || bestResult.title} (${req.subject} · ${req.gradeBand})
 
-${leadParagraph}
+${cleanAIMathFormatting(leadParagraph)}
 
 ${
   keyPointsBullets
-    ? `### Key Concepts & Breakdown:\n${keyPointsBullets}\n`
+    ? `### Key Scientific Principles & Breakdown:\n${keyPointsBullets}\n`
     : ''
 }
 ### How to Write This in Your Exam:
 - **Core Definition**: Start your answer with a clear 1–2 sentence definition of **${firstPage?.title || cleanTopic}**.
-- **Examples / Equations**: Always include at least one concrete scientific example, formula, or labeled diagram to secure full marks.
+- **Formula / Mechanism**: State the governing law, equation, or biological/chemical pathway clearly with SI units.
 
 Lumi's Study Tip: Click **Save to Study Notes** below to add this explanation of **${firstPage?.title || cleanTopic}** directly to your revision notebook!`;
   } catch {
@@ -1294,9 +1319,18 @@ Would you like another quiz question on **${matchedQuizTopic.subject}**, or shou
     return solvedNumerical;
   }
 
-  // 3. Check Core STEM Topics
+  // 3. Check Core STEM Topics using word-boundary aware matching (only for direct topic queries)
   const matchedTopic = CORE_STEM_TOPICS.find((topic) =>
-    topic.keywords.some((kw) => lower.includes(kw))
+    topic.keywords.some((kw) => {
+      if (kw === 'ph') {
+        return /\bph\b|\bph scale\b|\bph value\b/i.test(message);
+      }
+      if (kw === 'force' || kw === 'study' || kw === 'mirror' || kw === 'lens' || kw === 'refraction' || kw === 'reflection') {
+        return false;
+      }
+      const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`\\b${escaped}\\b`, 'i').test(lower);
+    })
   );
 
   if (matchedTopic) {
@@ -1318,18 +1352,10 @@ Would you like another quiz question on **${matchedQuizTopic.subject}**, or shou
     return elementProfile;
   }
 
-  // 5. Search NCERT 3D Diagrams database for direct match
-  const matchedDiagram = NCERT_DIAGRAMS.find((diag) => {
-    const titleWords = diag.title.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
-    return (
-      lower.includes(diag.title.toLowerCase()) ||
-      titleWords.some(
-        (w) =>
-          lower.includes(w) &&
-          !['human', 'system', 'structure', 'diagram', 'model', 'process', 'effect'].includes(w)
-      )
-    );
-  });
+  // 5. Search NCERT 3D Diagrams database ONLY for exact diagram title match
+  const matchedDiagram = NCERT_DIAGRAMS.find((diag) =>
+    lower.includes(diag.title.toLowerCase())
+  );
 
   if (matchedDiagram) {
     const partsList = matchedDiagram.pinpoints
@@ -1350,11 +1376,9 @@ ${matchedDiagram.examTips.map((t: string) => `- **Exam Tip**: ${t}`).join('\n')}
 Lumi's Study Tip: Open the **Visual Learning** tab and select **${matchedDiagram.title}** to rotate the 3D model, use the **Explode / Cross-Section** slider, and test yourself with the **Labeling Quiz**!`;
   }
 
-  // 6. Check Default Study Notes for matching concepts
-  const matchedNote = DEFAULT_NOTES.find(
-    (n) =>
-      n.tags.some((t) => lower.includes(t.toLowerCase())) ||
-      lower.includes(n.title.toLowerCase())
+  // 6. Check Default Study Notes ONLY for exact title match
+  const matchedNote = DEFAULT_NOTES.find((n) =>
+    lower.includes(n.title.toLowerCase())
   );
   if (matchedNote) {
     return `## ${matchedNote.title} (${matchedNote.subject})
