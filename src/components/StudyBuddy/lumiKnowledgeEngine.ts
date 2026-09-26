@@ -785,10 +785,10 @@ function extractCleanTopicQuery(question: string): string {
   return question
     .replace(/^(hi|hello|hey|lumi|please|can you|could you|would you|help me)\s+/gi, '')
     .replace(
-      /^(what\s+is\s+(an?\s+|the\s+)?|what\s+are\s+(the\s+)?|define\s+|explain\s+(to\s+me\s+)?(about\s+|the\s+)?|tell\s+me\s+about\s+|how\s+does\s+|how\s+do\s+|why\s+is\s+|why\s+do\s+|describe\s+|meaning\s+of\s+|give\s+me\s+notes\s+on\s+)/i,
+      /^(what\s+is\s+(an?\s+|the\s+)?(role\s+of\s+|function\s+of\s+|formula\s+of\s+|meaning\s+of\s+|importance\s+of\s+|use\s+of\s+)?|what\s+are\s+(the\s+)?|what\s+happens\s+when\s+|why\s+(is|are|do|does|did|can|should)\s+(an?\s+|the\s+)?|how\s+(does|do|is|are|can|many|much|to)\s+(an?\s+|the\s+)?|who\s+(discovered|invented|proposed|found|was|is)\s+(an?\s+|the\s+)?|when\s+(was|did|is)\s+|where\s+(is|are|does|do)\s+|define\s+|explain\s+(to\s+me\s+)?(about\s+|the\s+)?|tell\s+me\s+about\s+|describe\s+|state\s+(the\s+)?|write\s+(a\s+)?(short\s+)?note(s)?\s+on\s+|give\s+(me\s+)?(an?\s+)?(example|notes)\s+(of|on)\s+|derive\s+(the\s+)?)/i,
       ''
     )
-    .replace(/\s+(work|works|in\s+science|in\s+chemistry|in\s+physics|in\s+biology|in\s+detail|simply|step\s+by\s+step)\??$/i, '')
+    .replace(/\s+(work|works|happen|happens|in\s+science|in\s+chemistry|in\s+physics|in\s+biology|in\s+detail|simply|step\s+by\s+step|in\s+short|briefly)\??$/i, '')
     .replace(/[?!.]+$/g, '')
     .trim();
 }
@@ -968,15 +968,15 @@ IMPORTANT FORMATTING RULES:
     apiKey = '';
   }
 
-  if (apiKey && apiKey.trim().length > 10) {
+  if (
+    apiKey &&
+    apiKey.trim().length > 10 &&
+    apiKey.trim() !== 'undefined' &&
+    apiKey.trim() !== 'MY_GEMINI_API_KEY'
+  ) {
     try {
       const ai = new GoogleGenAI({
-        apiKey: apiKey.trim(),
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build'
-          }
-        }
+        apiKey: apiKey.trim()
       });
       const contents = [
         ...req.history.slice(-8).map((turn) => ({
@@ -1018,7 +1018,7 @@ IMPORTANT FORMATTING RULES:
     }
   }
 
-  // 2. Zero-Key Cloud Gemini/AI Relay for GitHub Pages when no API key secret is configured
+  // 2. Zero-Key Cloud AI Relay for GitHub Pages when no API key secret is configured
   const messages = [
     { role: 'system', content: systemPrompt },
     ...req.history.slice(-6).map((h) => ({
@@ -1028,10 +1028,12 @@ IMPORTANT FORMATTING RULES:
     { role: 'user', content: req.message }
   ];
 
-  for (const relayModel of ['gemini', 'openai']) {
+  const relayModels = ['openai-fast', 'openai'];
+  for (let i = 0; i < relayModels.length; i++) {
+    const relayModel = relayModels[i];
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const timeoutId = setTimeout(() => controller.abort(), 18000);
 
       const response = await fetch('https://text.pollinations.ai/openai', {
         method: 'POST',
@@ -1049,6 +1051,12 @@ IMPORTANT FORMATTING RULES:
 
       clearTimeout(timeoutId);
 
+      if (response.status === 429) {
+        // Anonymous concurrency limit is 1; wait briefly before next attempt
+        await new Promise((r) => setTimeout(r, 1600));
+        continue;
+      }
+
       if (!response.ok) continue;
       const rawText = await response.text();
       const trimmed = rawText.trim();
@@ -1062,8 +1070,28 @@ IMPORTANT FORMATTING RULES:
         }
       }
     } catch {
-      // Try next relay model or fall through
+      // Try next relay model
     }
+  }
+
+  // 3. Secondary Fast GET Cloud AI Fallback for Static Hosts
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const getPrompt = `You are Lumi, an encouraging ${req.gradeBand} ${req.subject} tutor. Answer clearly using Markdown headings and bullet points (no LaTeX $$ delimiters): ${req.message}`;
+    const getUrl = `https://text.pollinations.ai/${encodeURIComponent(getPrompt)}?model=openai`;
+
+    const getRes = await fetch(getUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (getRes.ok) {
+      const text = (await getRes.text()).trim();
+      if (text && text.length > 25 && !text.startsWith('<') && !text.startsWith('{"error"')) {
+        return cleanAIMathFormatting(text);
+      }
+    }
+  } catch {
+    // Fall through to Wikipedia / Local NCERT engine
   }
 
   return null;
