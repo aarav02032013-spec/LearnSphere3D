@@ -7,6 +7,7 @@ export interface Pinpoint {
   description: string;
   significance: string;
   formulaOrFact?: string;
+  minExplodeFactor?: number;
 }
 
 export interface Model3DItem {

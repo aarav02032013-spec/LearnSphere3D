@@ -168,9 +168,9 @@ export const NCERT_DIAGRAMS: NCERTDiagramItem[] = [
     classGrade: 7,
     subject: 'Biology',
     chapter: 'Chapter 2: Nutrition in Animals',
-    ncertFigure: 'Fig. 2.2 - Human digestive system',
-    subtitle: 'Continuous muscular gastrointestinal tract spanning mouth, stomach, intestines, liver, and pancreas',
-    description: 'The human digestive system breaks down complex insoluble food macromolecules into absorbable micromolecules through mechanical peristalsis, hydrochloric acid denaturation, and enzymatic hydrolysis in the mouth, stomach, small intestine, and large intestine.',
+    ncertFigure: 'Fig. 2.11 - A part of human digestive system',
+    subtitle: 'Cutaway gastrointestinal tract showing oesophagus, J-shaped stomach, gall bladder & bile ducts, pancreas, coiled small intestine, and haustrated colon',
+    description: 'The human digestive system breaks down complex insoluble food macromolecules into absorbable micromolecules through mechanical peristalsis, hydrochloric acid denaturation, and enzymatic hydrolysis across the stomach, C-shaped duodenum, coiled small intestine, and haustrated large intestine.',
     boardImportance: 'Very High',
     keyConcepts: [
       'Salivary Amylase starch digestion in buccal cavity',
@@ -190,50 +190,50 @@ export const NCERT_DIAGRAMS: NCERTDiagramItem[] = [
     pinpoints: [
       {
         id: 'mouth_esophagus',
-        name: 'Esophagus & Food Pipe',
-        position: [0, 1.45, 0],
-        description: 'Muscular tube conveying the masticated bolus from the pharynx to the stomach via rhythmic wave-like peristaltic contractions.',
+        name: 'Oesophagus (Food Pipe)',
+        position: [0.03, 1.5, 0.08],
+        description: 'Muscular tube conveying the masticated bolus from the pharynx into the cardiac stomach via rhythmic wave-like peristaltic contractions.',
         significance: 'No digestive enzymes are secreted here; purely transport organ lined with protective stratified epithelium.',
         formulaOrFact: 'Peristalsis operates independently of gravity.'
       },
       {
         id: 'stomach',
-        name: 'Stomach (J-shaped Bag)',
-        position: [0.35, 0.55, 0.2],
-        description: 'J-shaped muscular organ secreting gastric juice containing pepsinogen, hydrochloric acid (HCl), and mucus.',
+        name: 'Stomach (J-Shaped Cutaway Bag)',
+        position: [0.38, 0.78, 0.14],
+        description: 'J-shaped muscular organ with fundus, greater/lesser curvatures, and rugae folds secreting gastric juice (pepsinogen, HCl, and mucus).',
         significance: 'Kills ingested bacteria, creates acidic pH for pepsin protein digestion, and churns food into liquid chyme.',
         formulaOrFact: 'Gastric acid secretion generates pH 1.5 to 2.5; mucus prevents gastric self-digestion.'
       },
       {
         id: 'liver_gallbladder',
-        name: 'Liver & Gall Bladder',
-        position: [-0.65, 0.65, 0.15],
-        description: 'Largest gland of the human body producing alkaline golden-green bile juice, stored and concentrated in the gall bladder.',
+        name: 'Gall Bladder & Biliary Ducts',
+        position: [-0.82, 1.05, 0.12],
+        description: 'Pear-shaped sac storing and concentrating alkaline bile synthesized by the liver, delivering it via hepatic and common bile ducts into the duodenum.',
         significance: 'Bile salts (sodium glycocholate/taurocholate) emulsify dietary fats and neutralize acidic gastric chyme.',
-        formulaOrFact: 'Weighs 1.2 to 1.5 kg; receives dual blood supply via hepatic artery and hepatic portal vein.'
+        formulaOrFact: 'Joins the main pancreatic duct to form the hepatopancreatic ampulla opening into the duodenum.'
       },
       {
         id: 'pancreas',
-        name: 'Pancreas (Heterocrine Gland)',
-        position: [0.1, 0.2, -0.1],
-        description: 'Elongated retroperitoneal gland secreting alkaline pancreatic juice containing trypsin, amylase, and pancreatic lipase.',
+        name: 'Pancreas & Central Pancreatic Duct',
+        position: [0.05, 0.14, 0.12],
+        description: 'Lobulated elongated gland nestled in the duodenal C-loop, secreting alkaline pancreatic juice (trypsin, amylase, lipase) via its central white duct.',
         significance: 'Executes comprehensive digestion of proteins, starches, and lipids in the duodenum.',
         formulaOrFact: 'Endocrine islets of Langerhans secrete insulin and glucagon for blood glucose homeostasis.'
       },
       {
         id: 'small_intestine',
-        name: 'Small Intestine (Duodenum, Jejunum, Ileum)',
-        position: [0, -0.3, 0.25],
-        description: 'Highly coiled ~6-meter tube lined with millions of microscopic finger-like projections called villi.',
+        name: 'Small Intestine (Duodenum, Jejunum & Ileum)',
+        position: [-0.05, -0.78, 0.14],
+        description: 'Begins with the C-shaped cutaway duodenum and continues as tightly coiled pale-pink jejunum and ileum loops opening into the caecum.',
         significance: 'Site of complete digestion and principal organ for nutrient absorption into capillary and lacteal lymph vessels.',
         formulaOrFact: 'Villi and brush-border microvilli expand absorption surface area to ~250 m².'
       },
       {
         id: 'large_intestine',
-        name: 'Large Intestine (Colon & Rectum)',
-        position: [0, -0.65, 0.15],
-        description: 'Broader frame-like intestinal canal absorbing residual water, mineral salts, and forming solid fecal waste.',
-        significance: 'Prevents dehydration by reabsorbing over 90% of water from undigested residue.',
+        name: 'Large Intestine (Haustrated Colon, Caecum, Appendix & Rectum)',
+        position: [-0.82, -0.88, 0.14],
+        description: 'Sacculated (haustrated) colon framing the small intestine, featuring the cutaway caecum and vermiform appendix on the lower left and terminal rectum.',
+        significance: 'Prevents dehydration by reabsorbing over 90% of water and electrolytes from undigested residue.',
         formulaOrFact: 'Harbors trillions of symbiotic gut microbiome bacteria synthesizing vitamins B and K.'
       }
     ]
@@ -336,35 +336,35 @@ export const NCERT_DIAGRAMS: NCERTDiagramItem[] = [
     pinpoints: [
       {
         id: 'outer_zone',
-        name: 'Outermost Zone (Complete Combustion)',
-        position: [0, 1.4, 0],
-        description: 'Faint blue, non-luminous outer sheath where unlimited atmospheric oxygen allows 100% complete oxidation.',
-        significance: 'Hottest region of the flame (~1400 °C); completely soot-free.',
-        formulaOrFact: 'Used by goldsmiths with metallic blowpipes for precision brazing.'
+        name: 'Outer Zone of Complete Combustion (Blue) — Hottest Part',
+        position: [0.24, 1.06, 0],
+        description: 'Faint blue, non-luminous outer zone where plentiful atmospheric oxygen allows 100% complete combustion of wax vapours.',
+        significance: 'Hottest part of the candle flame (~1400 °C); leaves zero black soot.',
+        formulaOrFact: 'Goldsmiths blow the outermost zone of a flame with a metallic blowpipe for melting gold and silver.'
       },
       {
         id: 'middle_zone',
-        name: 'Middle Luminous Zone (Incomplete Combustion)',
-        position: [0, 0.7, 0.2],
-        description: 'Bright yellow-orange zone with limited oxygen supply where hydrocarbons crack into free carbon nanoparticles.',
-        significance: 'Carbon particles become incandescent and radiate yellow visible light, leaving black soot deposit on cool surfaces.',
-        formulaOrFact: 'Moderately hot (~1000 °C); responsible for primary flame luminosity.'
+        name: 'Middle Zone of Partial Combustion (Yellow) — Moderately Hot',
+        position: [0.06, 0.24, 0.12],
+        description: 'Bright yellow-orange luminous middle zone where limited oxygen causes partial combustion of wax vapours into glowing carbon particles.',
+        significance: 'Moderately hot (~1000 °C); glowing incandescent carbon particles emit yellow light and deposit black soot on cool objects.',
+        formulaOrFact: 'Holding a clean glass plate in the luminous zone produces a circular blackish ring of unburnt carbon particles.'
       },
       {
         id: 'inner_dark_zone',
-        name: 'Innermost Dark Zone (Unburnt Vapors)',
-        position: [0, 0.05, 0.1],
-        description: 'Dark black/transparent area immediately surrounding the wick containing uncombusted wax vapors.',
-        significance: 'Least hot zone (~600 °C); zero combustion occurs here due to absence of oxygen penetration.',
-        formulaOrFact: 'If a glass capillary tube is inserted here, flammable vapors exit and can be ignited at the other end.'
+        name: 'Innermost Zone of Unburnt Wax Vapours (Black) — Least Hot',
+        position: [0.02, -0.08, 0.08],
+        description: 'Dark black innermost zone immediately surrounding the cotton wick containing unburnt vaporized paraffin wax.',
+        significance: 'Least hot part of the flame (~600 °C); zero combustion occurs here due to absence of oxygen.',
+        formulaOrFact: 'If a glass tube is held inside the dark zone with tongs, unburnt wax vapours exit the other end and can be ignited.'
       },
       {
         id: 'wick_wax',
-        name: 'Braided Wick & Liquid Wax Molten Pool',
-        position: [0, -0.6, 0],
-        description: 'Cotton capillary wick drawing molten paraffin wax upward through surface tension capillary action.',
-        significance: 'Heat from flame continuously melts solid paraffin to sustain the vaporization cycle.',
-        formulaOrFact: 'Wax melts at ~50–65 °C and vaporizes at ~300 °C.'
+        name: 'Wax Candle & Braided Cotton Wick',
+        position: [-0.18, -1.25, 0.22],
+        description: 'Cylindrical solid paraffin wax candle with a concave molten wax cup, front wax drip, and central braided cotton wick.',
+        significance: 'Molten wax rises up the wick by capillary action and vaporizes in the heat to sustain the flame.',
+        formulaOrFact: 'Only substances which vaporize during burning give flames (e.g., molten wax and kerosene).'
       }
     ]
   },
@@ -773,43 +773,52 @@ export const NCERT_DIAGRAMS: NCERTDiagramItem[] = [
     pinpoints: [
       {
         id: 'armature_coil',
-        name: 'Rectangular Armature Coil (ABCD)',
-        position: [0, 0.2, 0],
-        description: 'Insulated copper wire wound over a soft iron core, suspended between magnetic poles.',
-        significance: 'Current through arm AB runs opposite to CD; opposite Lorentz forces generate rotating couple.',
-        formulaOrFact: 'Torque increases proportionally with turn count $N$ and coil cross-sectional area $A$.'
+        name: 'Rectangular Copper Armature Coil',
+        position: [0.0, 0.14, -0.68],
+        description: 'Rectangular copper conductor loop suspended horizontally between the concave N and S magnet poles, carrying electric current I through its left and right arms.',
+        significance: 'Conducts current through the magnetic field so electromagnetic torque can rotate the loop continuously.',
+        formulaOrFact: 'Torque τ = N · I · A · B · cosθ.'
+      },
+      {
+        id: 'magnetic_force',
+        name: 'Magnetic Force (Lorentz forces (F = I · L × B))',
+        position: [-0.68, 0.45, -0.32],
+        minExplodeFactor: 0.58,
+        description: 'Upward magnetic force F on the left armature arm and downward magnetic force F on the right arm when current I flows perpendicular to the magnetic field B.',
+        significance: 'Opposite Lorentz forces (F = I · L × B) on the two parallel arms produce a clockwise turning couple (torque).',
+        formulaOrFact: 'Direction of force is given by Fleming’s Left-Hand Rule.'
       },
       {
         id: 'magnetic_poles',
-        name: 'Permanent Magnetic Poles (N & S)',
-        position: [-1.4, 0.2, 0],
-        description: 'Strong permanent or electromagnet poles creating a uniform horizontal magnetic field $B$ from North to South.',
-        significance: 'Provides the magnetic field required for Lorentz force interaction with moving charges in the wire.',
-        formulaOrFact: 'Field lines emanate horizontally from Red North pole to Blue South pole.'
+        name: 'North (N) & South (S) Poles & Magnetic Field (B)',
+        position: [-1.42, 0.92, -0.10],
+        description: 'Red North (N) and Blue South (S) concave block magnets producing a uniform horizontal magnetic field B (dashed green lines) across the air gap.',
+        significance: 'Concave cylindrical pole faces concentrate magnetic flux lines horizontally through the armature coil.',
+        formulaOrFact: 'Magnetic field B interacts with perpendicular current I in the armature arms.'
       },
       {
         id: 'split_rings',
-        name: 'Split-Ring Commutator (P & Q)',
-        position: [0, -0.65, 0.7],
-        description: 'Conducting metallic cylinder divided into two insulated half-rings rotating with the coil axle.',
-        significance: 'Reverses the current direction in coil arms every 180° so the torque vector remains unidirectional.',
-        formulaOrFact: 'Without commutator, the coil would merely oscillate back and forth and stall at vertical neutral plane.'
+        name: 'Split-Ring Commutator',
+        position: [0.0, -0.24, 0.96],
+        description: 'Two golden-orange metallic half-rings separated by a vertical insulating air gap, connected to the two neck leads of the armature loop.',
+        significance: 'Acts as a mechanical inverter that reverses the current direction through the armature loop every half-rotation (180°).',
+        formulaOrFact: 'Ensures unidirectional (continuous clockwise) rotational torque.'
       },
       {
         id: 'carbon_brushes',
-        name: 'Carbon Contact Brushes (X & Y)',
-        position: [0.45, -0.65, 0.7],
-        description: 'Stationary graphite/carbon blocks spring-pressed against rotating split-rings.',
-        significance: 'Maintains uninterrupted electrical contact with external DC battery while minimizing friction and sparking.',
-        formulaOrFact: 'Graphite provides self-lubricating electrical conductivity.'
+        name: 'Stationary Carbon Brushes',
+        position: [0.54, 0.14, 0.72],
+        description: 'Two dark-grey rectangular graphite blocks pressing against the outer curved sides of the split-ring commutator.',
+        significance: 'Conducts electric current I from the external battery wires into the rotating commutator rings without tangling the wires.',
+        formulaOrFact: 'Graphite provides self-lubricating, low-friction electrical contact.'
       },
       {
         id: 'rotation_shaft',
-        name: 'Axle & Rotating Shaft',
-        position: [0, 0, -1.2],
-        description: 'Sturdy steel central axle rigidly connected to the armature coil.',
-        significance: 'Delivers mechanical shaft power to external equipment (fans, wheels, blenders).',
-        formulaOrFact: 'Rotational mechanical power $P = \\tau \\cdot \\omega$.'
+        name: 'DC Battery (+ / -) & Electric Current (I)',
+        position: [0.0, -0.62, 1.22],
+        description: 'Cylindrical DC battery cell (+ on left, - on right) driving conventional electric current I (yellow arrows) through the external conducting wire loop.',
+        significance: 'Supplies electrical energy that the motor converts into mechanical rotational work.',
+        formulaOrFact: 'Current I flows from the positive (+) terminal up into the left brush and returns from the right brush to the negative (-) terminal.'
       }
     ]
   },

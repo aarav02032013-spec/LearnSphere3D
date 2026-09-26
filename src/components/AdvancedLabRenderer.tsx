@@ -311,16 +311,25 @@ export const AdvancedLabRenderer: React.FC<AdvancedLabRendererProps> = ({
     }
   };
 
-  const onWheel = (e: React.WheelEvent) => {
-    if (!cameraRef.current) return;
-    e.preventDefault();
-    cameraRef.current.position.z = Math.max(1.8, Math.min(8.0, cameraRef.current.position.z + e.deltaY * 0.002));
-  };
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handleNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!cameraRef.current) return;
+      cameraRef.current.position.z = Math.max(1.8, Math.min(8.0, cameraRef.current.position.z + e.deltaY * 0.002));
+    };
+    el.addEventListener('wheel', handleNativeWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleNativeWheel);
+    };
+  }, []);
 
   return (
     <div
       ref={containerRef}
-      className="w-full h-full relative cursor-grab active:cursor-grabbing select-none overflow-hidden touch-none"
+      className="w-full h-full relative cursor-grab active:cursor-grabbing select-none overflow-hidden touch-none overscroll-contain"
       style={{ minHeight: '440px' }}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
@@ -330,7 +339,6 @@ export const AdvancedLabRenderer: React.FC<AdvancedLabRendererProps> = ({
       onTouchMove={onTouchMove}
       onTouchEnd={handleDragEnd}
       onClick={onClick}
-      onWheel={onWheel}
     >
       <div ref={canvasMountRef} className="absolute inset-0 w-full h-full pointer-events-none" />
     </div>

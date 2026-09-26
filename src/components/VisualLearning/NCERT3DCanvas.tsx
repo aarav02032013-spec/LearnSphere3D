@@ -26,6 +26,7 @@ interface NCERT3DCanvasProps {
   onSelectPin?: (pin: Pinpoint) => void;
   speedMultiplier?: number;
   unitCellType?: 'SC' | 'BCC' | 'FCC';
+  quizMode?: boolean;
 }
 
 export const NCERT3DCanvas: React.FC<NCERT3DCanvasProps> = ({
@@ -38,7 +39,8 @@ export const NCERT3DCanvas: React.FC<NCERT3DCanvasProps> = ({
   selectedPinId = null,
   onSelectPin,
   speedMultiplier = 1,
-  unitCellType = 'BCC'
+  unitCellType = 'BCC',
+  quizMode = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasMountRef = useRef<HTMLDivElement>(null);
@@ -60,6 +62,13 @@ export const NCERT3DCanvas: React.FC<NCERT3DCanvasProps> = ({
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const timeRef = useRef(0);
+
+  const autoRotateRef = useRef(autoRotate);
+  autoRotateRef.current = autoRotate;
+  const renderTypeRef = useRef(renderType);
+  renderTypeRef.current = renderType;
+  const speedMultiplierRef = useRef(speedMultiplier);
+  speedMultiplierRef.current = speedMultiplier;
 
   // Initialize WebGL Scene
   useEffect(() => {
@@ -182,18 +191,18 @@ export const NCERT3DCanvas: React.FC<NCERT3DCanvasProps> = ({
       const now = performance.now();
       const delta = (now - lastTime) / 1000;
       lastTime = now;
-      timeRef.current += delta * speedMultiplier;
+      timeRef.current += delta * speedMultiplierRef.current;
 
-      if (autoRotate && rootGroupRef.current && !isDraggingRef.current) {
+      if (autoRotateRef.current && rootGroupRef.current && !isDraggingRef.current) {
         rootGroupRef.current.rotation.y += 0.005;
       }
 
-      if (stageGroupRef.current) {
+      if (autoRotateRef.current && stageGroupRef.current) {
         stageGroupRef.current.rotation.y += 0.0015;
       }
 
       try {
-        updateNCERTModelAnimation(renderType, modelGroup, timeRef.current);
+        updateNCERTModelAnimation(renderTypeRef.current, modelGroup, timeRef.current);
       } catch (e) {
         console.warn('NCERT model animation error:', e);
       }
@@ -235,12 +244,12 @@ export const NCERT3DCanvas: React.FC<NCERT3DCanvasProps> = ({
     buildNCERTModel(renderType, modelGroupRef.current, { wireframe, xray, explodeFactor, unitCellType });
   }, [renderType, wireframe, xray, explodeFactor, unitCellType]);
 
-  // Rebuild pins when pinpoints or selection change
+  // Rebuild pins when pinpoints, selection, or explodeFactor change
   useEffect(() => {
     if (!pinsGroupRef.current) return;
     clearGroup(pinsGroupRef.current);
-    buildNCERTPins(pinpoints, pinsGroupRef.current, selectedPinId);
-  }, [pinpoints, selectedPinId]);
+    buildNCERTPins(pinpoints, pinsGroupRef.current, selectedPinId, explodeFactor);
+  }, [pinpoints, selectedPinId, explodeFactor]);
 
   // Drag Orbit Interactions
   const handleDragStart = (x: number, y: number) => {
@@ -379,17 +388,28 @@ export const NCERT3DCanvas: React.FC<NCERT3DCanvasProps> = ({
     } catch {}
   };
 
-  const onWheel = (e: React.WheelEvent) => {
-    if (!cameraRef.current) return;
-    e.preventDefault();
-    const zoomDelta = e.deltaY * 0.003;
-    cameraRef.current.position.z = Math.max(1.8, Math.min(8.0, cameraRef.current.position.z + zoomDelta));
-  };
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handleNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!cameraRef.current) return;
+      const zoomDelta = e.deltaY * 0.003;
+      if (Number.isFinite(zoomDelta)) {
+        cameraRef.current.position.z = Math.max(1.8, Math.min(8.0, cameraRef.current.position.z + zoomDelta));
+      }
+    };
+    el.addEventListener('wheel', handleNativeWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleNativeWheel);
+    };
+  }, []);
 
   return (
     <div
       ref={containerRef}
-      className="w-full h-full relative cursor-grab active:cursor-grabbing select-none overflow-hidden touch-none"
+      className="w-full h-full relative cursor-grab active:cursor-grabbing select-none overflow-hidden touch-none overscroll-contain"
       style={{ minHeight: '440px' }}
       onMouseDown={(e) => handleDragStart(e.clientX, e.clientY)}
       onMouseMove={(e) => (isDraggingRef.current ? handleDragMove(e.clientX, e.clientY) : handleHoverRaycast(e.clientX, e.clientY))}
@@ -406,12 +426,11 @@ export const NCERT3DCanvas: React.FC<NCERT3DCanvasProps> = ({
       onTouchMove={(e) => e.touches.length === 1 && handleDragMove(e.touches[0].clientX, e.touches[0].clientY)}
       onTouchEnd={handleDragEnd}
       onClick={handleClick}
-      onWheel={onWheel}
     >
       <div ref={canvasMountRef} className="absolute inset-0 w-full h-full pointer-events-none" />
 
-      {/* Floating Hover Tooltip */}
-      {hoveredTooltip && !isDragging && (
+      {/* Floating Hover Tooltip (hidden during Labeling Quiz for challenge) */}
+      {hoveredTooltip && !isDragging && !quizMode && (
         <div
           className="pointer-events-none absolute z-40 transition-all duration-75 ease-out"
           style={{
@@ -561,11 +580,15 @@ function unhighlightObject(rootObj: THREE.Object3D) {
   } catch {}
 }
 
-function buildNCERTPins(pinpoints: Pinpoint[], group: THREE.Group, selectedPinId: string | null) {
+function buildNCERTPins(pinpoints: Pinpoint[], group: THREE.Group, selectedPinId: string | null, explodeFactor = 0) {
+  const scale = 1 + explodeFactor * 0.35;
   pinpoints.forEach((pin) => {
+    if (pin.minExplodeFactor !== undefined && explodeFactor < pin.minExplodeFactor) {
+      return;
+    }
     const isSelected = pin.id === selectedPinId;
     const pinContainer = new THREE.Group();
-    pinContainer.position.set(pin.position[0], pin.position[1], pin.position[2]);
+    pinContainer.position.set(pin.position[0] * scale, pin.position[1] * scale, pin.position[2] * scale);
     pinContainer.userData = { pinId: pin.id };
 
     const ringGeom = new THREE.RingGeometry(0.08, 0.12, 24);
@@ -664,6 +687,22 @@ function buildNCERTModel(renderType: string, group: THREE.Group, opts: ModelOpts
       break;
     default:
       buildNephronModel(group, opts);
+  }
+
+  // Apply universal radial explode & cross-section expansion to all top-level model parts
+  if (opts.explodeFactor > 0) {
+    const total = group.children.length;
+    group.children.forEach((child, idx) => {
+      const pos = child.position;
+      const len = pos.length();
+      if (len > 0.04) {
+        child.position.multiplyScalar(1 + opts.explodeFactor * 0.45);
+      } else if (total > 1) {
+        const angle = (idx / total) * Math.PI * 2;
+        child.position.x += Math.cos(angle) * opts.explodeFactor * 0.28;
+        child.position.z += Math.sin(angle) * opts.explodeFactor * 0.28;
+      }
+    });
   }
 }
 
@@ -897,114 +936,499 @@ function buildCircuitModel(group: THREE.Group, opts: ModelOpts) {
   group.add(wireMesh);
 }
 
-// 3. HUMAN ALIMENTARY CANAL & DIGESTIVE SYSTEM
+// 3. HUMAN ALIMENTARY CANAL & DIGESTIVE SYSTEM (Exact NCERT Fig. 2.11 High-Fidelity 3D Cutaway Model)
 function buildDigestiveModel(group: THREE.Group, opts: ModelOpts) {
-  const explode = opts.explodeFactor * 0.8;
+  const explode = opts.explodeFactor * 0.75;
 
-  // Esophagus
-  const esoGeom = new THREE.CylinderGeometry(0.1, 0.12, 1.4, 16);
-  const esoMat = getMaterial(0xf472b6, { ...opts, roughness: 0.4 });
-  const eso = new THREE.Mesh(esoGeom, esoMat);
-  eso.position.set(0, 1.3, 0);
-  eso.userData.partInfo = {
-    name: 'Esophagus',
-    category: 'Transport Tube',
-    function: 'Conveys food bolus by peristalsis.',
-    pinId: 'mouth_esophagus'
-  };
-  group.add(eso);
+  // Signature NCERT Fig. 2.11 Color Materials
+  const palePinkMat = getMaterial(0xfbcfe8, {
+    ...opts,
+    roughness: 0.38,
+    metalness: 0.05,
+    emissive: 0xf472b6,
+    emissiveIntensity: 0.12
+  });
+  const roseWallMat = getMaterial(0xf472b6, {
+    ...opts,
+    roughness: 0.35,
+    metalness: 0.06,
+    emissive: 0xdb2777,
+    emissiveIntensity: 0.18
+  });
+  const deepRoseMat = getMaterial(0xec4899, {
+    ...opts,
+    roughness: 0.4,
+    metalness: 0.05,
+    emissive: 0xbe185d,
+    emissiveIntensity: 0.16
+  });
+  const plumLumenMat = getMaterial(0x784b6a, {
+    ...opts,
+    roughness: 0.65,
+    metalness: 0.04,
+    emissive: 0x4a253e,
+    emissiveIntensity: 0.15
+  });
+  const darkPlumFoldMat = new THREE.LineBasicMaterial({
+    color: 0x3b1d31,
+    transparent: true,
+    opacity: 0.75
+  });
+  const ductMat = getMaterial(0xfdf2f8, {
+    ...opts,
+    roughness: 0.3,
+    metalness: 0.05,
+    emissive: 0xf9a8d4,
+    emissiveIntensity: 0.18
+  });
 
-  // J-Shaped Curved Stomach
-  const stomachCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 0.7, 0),
-    new THREE.Vector3(0.4 + explode * 0.5, 0.4, 0.1),
-    new THREE.Vector3(0.35 + explode * 0.5, -0.1, 0),
-    new THREE.Vector3(0, -0.2, 0)
-  ]);
-  const stomGeom = new THREE.TubeGeometry(stomachCurve, 32, 0.32, 16, false);
-  const stomMat = getMaterial(0xfb7185, { ...opts, roughness: 0.35, emissive: 0xe11d48, emissiveIntensity: 0.3 });
-  const stomach = new THREE.Mesh(stomGeom, stomMat);
-  stomach.userData.partInfo = {
-    name: 'Stomach (J-Shaped Bag)',
-    category: 'Digestive Chamber',
-    function: 'Acidifies chyme with HCl (pH ~2) and initiates protein breakdown via pepsin.',
-    pinId: 'stomach'
-  };
-  group.add(stomach);
-
-  // Multi-lobed Liver
-  const liverGeom = new THREE.ConeGeometry(0.7, 0.9, 16);
-  const liverMat = getMaterial(0x991b1b, { ...opts, roughness: 0.45, emissive: 0x7f1d1d, emissiveIntensity: 0.25 });
-  const liver = new THREE.Mesh(liverGeom, liverMat);
-  liver.position.set(-0.7 - explode * 0.6, 0.45, 0.2);
-  liver.rotation.z = -1.2;
-  liver.userData.partInfo = {
-    name: 'Liver',
-    category: 'Digestive Gland',
-    function: 'Synthesizes bile salts for lipid emulsification.',
+  // ============================================================================
+  // 1. GALL BLADDER (PEAR-SHAPED SAC WITH UPPER CUTAWAY) & BILIARY DUCT TREE
+  // ============================================================================
+  const biliaryGroup = new THREE.Group();
+  biliaryGroup.position.set(-explode * 0.5, explode * 0.35, explode * 0.2);
+  biliaryGroup.userData.partInfo = {
+    name: 'Gall Bladder & Biliary Duct Tree (Hepatic & Common Bile Duct)',
+    category: 'Digestive Gland & Ducts',
+    function: 'Stores and concentrates alkaline bile from the liver and delivers it via the common bile duct into the duodenum.',
+    fact: 'Bile salts emulsify large dietary fat globules into microscopic micelles for lipase action.',
     pinId: 'liver_gallbladder'
   };
-  group.add(liver);
 
-  // Green Gall Bladder
-  const gbGeom = new THREE.SphereGeometry(0.18, 12, 12);
-  const gbMat = getMaterial(0x22c55e, { ...opts, emissive: 0x15803d, emissiveIntensity: 0.4 });
-  const gb = new THREE.Mesh(gbGeom, gbMat);
-  gb.position.set(-0.4 - explode * 0.6, 0.2, 0.4);
-  group.add(gb);
+  // Lower intact bulbous pear fundus of Gall Bladder
+  const gbFundusGeom = new THREE.SphereGeometry(0.21, 24, 20);
+  gbFundusGeom.scale(0.95, 1.18, 0.72);
+  const gbFundus = new THREE.Mesh(gbFundusGeom, roseWallMat);
+  gbFundus.position.set(-0.88, 0.92, 0.05);
+  gbFundus.rotation.z = -0.22;
+  biliaryGroup.add(gbFundus);
 
-  // Leaf-shaped Pancreas
-  const pancGeom = new THREE.CylinderGeometry(0.1, 0.18, 0.9, 12);
-  const pancMat = getMaterial(0xfacc15, { ...opts, emissive: 0xca8a04, emissiveIntensity: 0.3 });
-  const pancreas = new THREE.Mesh(pancGeom, pancMat);
-  pancreas.position.set(0.15, 0.05, -0.2 - explode * 0.4);
-  pancreas.rotation.z = 1.4;
-  pancreas.userData.partInfo = {
-    name: 'Pancreas',
-    category: 'Dual Gland',
-    function: 'Secretes alkaline pancreatic juice with trypsin, lipase, and amylase.',
-    pinId: 'pancreas'
+  // Upper cutaway neck/body of Gall Bladder (Rose outer rim + deep plum-mauve interior cavity)
+  const gbNeckCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.84, 1.06, 0.04),
+    new THREE.Vector3(-0.76, 1.25, 0.04),
+    new THREE.Vector3(-0.64, 1.38, 0.03),
+    new THREE.Vector3(-0.55, 1.24, 0.02)
+  ]);
+  const gbNeckRim = new THREE.Mesh(new THREE.TubeGeometry(gbNeckCurve, 24, 0.095, 14, false), roseWallMat);
+  gbNeckRim.scale.set(1, 1, 0.55);
+  biliaryGroup.add(gbNeckRim);
+
+  const gbLumenCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.85, 1.04, 0.075),
+    new THREE.Vector3(-0.77, 1.23, 0.075),
+    new THREE.Vector3(-0.65, 1.35, 0.06)
+  ]);
+  const gbLumen = new THREE.Mesh(new THREE.TubeGeometry(gbLumenCurve, 20, 0.068, 12, false), plumLumenMat);
+  gbLumen.scale.set(1, 1, 0.45);
+  biliaryGroup.add(gbLumen);
+
+  // Branching Hepatic Ducts (Y-shaped left & right hepatic ducts with upper sub-branches as in Fig. 2.11)
+  const commonBileCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.55, 1.24, 0.02),
+    new THREE.Vector3(-0.46, 0.96, 0.01),
+    new THREE.Vector3(-0.49, 0.62, -0.02),
+    new THREE.Vector3(-0.56, 0.24, 0.03)
+  ]);
+  biliaryGroup.add(new THREE.Mesh(new THREE.TubeGeometry(commonBileCurve, 24, 0.026, 10, false), ductMat));
+
+  // Right & Left Hepatic Duct branches at top
+  const hepaticBranch1 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.46, 0.96, 0.01),
+    new THREE.Vector3(-0.44, 1.22, 0.01),
+    new THREE.Vector3(-0.43, 1.37, 0.01)
+  ]);
+  biliaryGroup.add(new THREE.Mesh(new THREE.TubeGeometry(hepaticBranch1, 12, 0.02, 8, false), ductMat));
+
+  const hepaticBranch2 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.44, 1.15, 0.01),
+    new THREE.Vector3(-0.33, 1.33, 0.01)
+  ]);
+  biliaryGroup.add(new THREE.Mesh(new THREE.TubeGeometry(hepaticBranch2, 10, 0.018, 8, false), ductMat));
+
+  const hepaticBranch3 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.38, 1.25, 0.01),
+    new THREE.Vector3(-0.30, 1.28, 0.01)
+  ]);
+  biliaryGroup.add(new THREE.Mesh(new THREE.TubeGeometry(hepaticBranch3, 8, 0.014, 8, false), ductMat));
+
+  group.add(biliaryGroup);
+
+  // ============================================================================
+  // 2. LOWER OESOPHAGUS & J-SHAPED STOMACH (WITH ANTERIOR CUTAWAY & RUGAE)
+  // ============================================================================
+  const stomachGroup = new THREE.Group();
+  stomachGroup.position.set(explode * 0.45, explode * 0.3, 0);
+
+  // Oesophagus (Top center vertical cutaway tube entering cardiac stomach)
+  const esoGroup = new THREE.Group();
+  esoGroup.userData.partInfo = {
+    name: 'Oesophagus (Food Pipe)',
+    category: 'Muscular Transport Tube',
+    function: 'Conveys masticated food bolus from the pharynx into the cardiac stomach via peristalsis.',
+    fact: 'Peristaltic waves push food into the stomach through the gastro-oesophageal sphincter.',
+    pinId: 'mouth_esophagus'
   };
-  group.add(pancreas);
+  const esoCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.02, 1.62, 0),
+    new THREE.Vector3(0.03, 1.38, 0),
+    new THREE.Vector3(0.08, 1.18, 0)
+  ]);
+  const esoOuter = new THREE.Mesh(new THREE.TubeGeometry(esoCurve, 16, 0.095, 14, false), roseWallMat);
+  esoOuter.scale.set(1, 1, 0.62);
+  esoGroup.add(esoOuter);
 
-  // Large Intestine (Surrounding Frame)
-  const liPoints = [
-    new THREE.Vector3(-0.8, -1.0, 0),
-    new THREE.Vector3(-0.85, -0.3, 0),
-    new THREE.Vector3(0, -0.3, 0),
-    new THREE.Vector3(0.85, -0.3, 0),
-    new THREE.Vector3(0.85, -1.1, 0),
-    new THREE.Vector3(0, -1.4, 0)
+  const esoLumen = new THREE.Mesh(new THREE.TubeGeometry(esoCurve, 16, 0.06, 12, false), plumLumenMat);
+  esoLumen.position.z = 0.03;
+  esoLumen.scale.set(1, 1, 0.45);
+  esoGroup.add(esoLumen);
+  stomachGroup.add(esoGroup);
+
+  // J-Shaped Stomach Container
+  const jStomach = new THREE.Group();
+  jStomach.userData.partInfo = {
+    name: 'Stomach (J-Shaped Muscular Bag — Cutaway View)',
+    category: 'Gastric Chamber',
+    function: 'Churns food with gastric juice (HCl, pepsin, and mucus) into acidic semi-fluid chyme.',
+    fact: 'Shows the pale pink outer serosa (fundus & greater curvature), rose muscular wall rim, and deep plum-mauve mucosal lumen.',
+    pinId: 'stomach'
+  };
+
+  // A. Outer Pale Blush-Pink Serosal Dome (Fundus & Sweeping Greater Curvature extending right/below cutaway)
+  const outerStomachCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.24, 1.24, -0.04),
+    new THREE.Vector3(0.56, 1.14, -0.03),
+    new THREE.Vector3(0.72, 0.82, -0.03),
+    new THREE.Vector3(0.62, 0.48, -0.03),
+    new THREE.Vector3(0.28, 0.34, -0.03),
+    new THREE.Vector3(-0.14, 0.38, -0.03)
+  ]);
+  const outerStomachGeom = new THREE.TubeGeometry(outerStomachCurve, 36, 0.32, 20, false);
+  outerStomachGeom.scale(1.0, 1.0, 0.48);
+  const outerStomachMesh = new THREE.Mesh(outerStomachGeom, palePinkMat);
+  jStomach.add(outerStomachMesh);
+
+  // Fundus top dome cap (pale blush pink)
+  const fundusCapGeom = new THREE.SphereGeometry(0.31, 24, 20);
+  fundusCapGeom.scale(1.05, 0.95, 0.48);
+  const fundusCap = new THREE.Mesh(fundusCapGeom, palePinkMat);
+  fundusCap.position.set(0.32, 1.18, -0.03);
+  jStomach.add(fundusCap);
+
+  // B. Rose-Pink Cutaway Muscular Wall Rim framing the anterior cutaway window
+  const cutawayWallCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.12, 1.12, 0.02),
+    new THREE.Vector3(0.36, 1.05, 0.02),
+    new THREE.Vector3(0.46, 0.78, 0.02),
+    new THREE.Vector3(0.36, 0.52, 0.02),
+    new THREE.Vector3(0.05, 0.43, 0.02),
+    new THREE.Vector3(-0.26, 0.52, 0.02)
+  ]);
+  const cutawayWallGeom = new THREE.TubeGeometry(cutawayWallCurve, 36, 0.25, 18, false);
+  cutawayWallGeom.scale(1.0, 1.0, 0.45);
+  const cutawayWallMesh = new THREE.Mesh(cutawayWallGeom, roseWallMat);
+  jStomach.add(cutawayWallMesh);
+
+  // C. Deep Plum-Mauve Gastric Lumen (Interior Cavity of Stomach)
+  const lumenCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.12, 1.10, 0.065),
+    new THREE.Vector3(0.34, 1.02, 0.065),
+    new THREE.Vector3(0.43, 0.78, 0.065),
+    new THREE.Vector3(0.33, 0.53, 0.065),
+    new THREE.Vector3(0.04, 0.45, 0.065),
+    new THREE.Vector3(-0.28, 0.53, 0.065)
+  ]);
+  const lumenGeom = new THREE.TubeGeometry(lumenCurve, 36, 0.205, 18, false);
+  lumenGeom.scale(1.0, 1.0, 0.36);
+  const lumenMesh = new THREE.Mesh(lumenGeom, plumLumenMat);
+  jStomach.add(lumenMesh);
+
+  // Wavy gastric rugae contour lines inside the plum lumen
+  const rugaePaths = [
+    [new THREE.Vector3(0.15, 0.95, 0.145), new THREE.Vector3(0.28, 0.78, 0.145), new THREE.Vector3(0.18, 0.56, 0.145)],
+    [new THREE.Vector3(0.32, 0.92, 0.145), new THREE.Vector3(0.42, 0.72, 0.145), new THREE.Vector3(0.25, 0.48, 0.145)],
+    [new THREE.Vector3(0.08, 0.46, 0.145), new THREE.Vector3(-0.12, 0.48, 0.145), new THREE.Vector3(-0.24, 0.53, 0.145)]
   ];
-  const liCurve = new THREE.CatmullRomCurve3(liPoints, false);
-  const liGeom = new THREE.TubeGeometry(liCurve, 48, 0.18, 12, false);
-  const liMat = getMaterial(0x78716c, { ...opts, roughness: 0.5 });
-  const liMesh = new THREE.Mesh(liGeom, liMat);
-  liMesh.userData.partInfo = {
-    name: 'Large Intestine (Colon & Rectum)',
-    category: 'Absorption & Excretion',
-    function: 'Reabsorbs water and mineral electrolytes.',
-    pinId: 'large_intestine'
-  };
-  group.add(liMesh);
+  rugaePaths.forEach((pts) => {
+    const rCurve = new THREE.CatmullRomCurve3(pts);
+    jStomach.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rCurve.getPoints(20)), darkPlumFoldMat));
+  });
 
-  // Small Intestine (Dense central coils)
-  const siGroup = new THREE.Group();
-  siGroup.position.set(0, -0.7, 0.1);
-  for (let i = 0; i < 7; i++) {
-    const coilGeom = new THREE.TorusGeometry(0.4 - i * 0.04, 0.09, 8, 24);
-    const coilMat = getMaterial(0xf87171, { ...opts, roughness: 0.4 });
-    const coil = new THREE.Mesh(coilGeom, coilMat);
-    coil.position.set((Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.25, (Math.random() - 0.5) * 0.2);
-    coil.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-    siGroup.add(coil);
-  }
-  siGroup.userData.partInfo = {
-    name: 'Small Intestine (Villi & Microvilli)',
-    category: 'Primary Absorption',
-    function: 'Completes digestion of all carbohydrates, proteins, and lipids.',
+  stomachGroup.add(jStomach);
+  group.add(stomachGroup);
+
+  // ============================================================================
+  // 3. C-SHAPED DUODENUM (CUTAWAY) & HORIZONTAL LOBULATED PANCREAS
+  // ============================================================================
+  // C-Shaped Duodenum looping from pylorus around left and descending into jejunal hook
+  const duodenumGroup = new THREE.Group();
+  duodenumGroup.position.set(-explode * 0.25, 0, explode * 0.15);
+  duodenumGroup.userData.partInfo = {
+    name: 'Duodenum (C-Shaped Proximal Small Intestine)',
+    category: 'Chemical Digestion Hub',
+    function: 'Receives bile from the gall bladder and pancreatic juice from the pancreas via the hepatopancreatic duct.',
+    fact: 'First and shortest (~25 cm) C-shaped segment of the small intestine surrounding the head of the pancreas.',
     pinId: 'small_intestine'
   };
+
+  const duoCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.30, 0.54, 0.02),
+    new THREE.Vector3(-0.56, 0.58, 0.02),
+    new THREE.Vector3(-0.78, 0.42, 0.02),
+    new THREE.Vector3(-0.84, 0.16, 0.02),
+    new THREE.Vector3(-0.72, -0.02, 0.02),
+    new THREE.Vector3(-0.38, -0.10, 0.01),
+    new THREE.Vector3(0.08, -0.14, -0.02),
+    new THREE.Vector3(0.24, -0.35, -0.02),
+    new THREE.Vector3(0.32, -0.52, 0.02),
+    new THREE.Vector3(0.14, -0.58, 0.04),
+    new THREE.Vector3(0.02, -0.46, 0.05)
+  ]);
+  const duoOuter = new THREE.Mesh(new THREE.TubeGeometry(duoCurve, 48, 0.11, 14, false), roseWallMat);
+  duoOuter.scale.set(1, 1, 0.55);
+  duodenumGroup.add(duoOuter);
+
+  const duoLumen = new THREE.Mesh(new THREE.TubeGeometry(duoCurve, 48, 0.076, 12, false), plumLumenMat);
+  duoLumen.position.z = 0.032;
+  duoLumen.scale.set(1, 1, 0.42);
+  duodenumGroup.add(duoLumen);
+
+  group.add(duodenumGroup);
+
+  // Horizontal Leaf-Shaped Lobulated Pancreas (Nestled in C-loop of Duodenum)
+  const pancreasGroup = new THREE.Group();
+  pancreasGroup.position.set(explode * 0.2, 0.02, -explode * 0.35);
+  pancreasGroup.userData.partInfo = {
+    name: 'Pancreas (Lobulated Gland & Main Pancreatic Duct)',
+    category: 'Heterocrine Digestive Gland',
+    function: 'Secretes alkaline pancreatic juice (trypsinogen, amylase, lipase) via the central pancreatic duct into the duodenum.',
+    fact: 'Nestled horizontally inside the C-curve of the duodenum just below the stomach.',
+    pinId: 'pancreas'
+  };
+
+  // Elongated leaf-shaped pancreas core
+  const pancAxisCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.66, 0.18, -0.02),
+    new THREE.Vector3(-0.25, 0.14, -0.02),
+    new THREE.Vector3(0.22, 0.11, -0.02),
+    new THREE.Vector3(0.68, 0.12, -0.02)
+  ]);
+  const pancCoreGeom = new THREE.TubeGeometry(pancAxisCurve, 28, 0.14, 14, false);
+  pancCoreGeom.scale(1.0, 1.05, 0.45);
+  const pancCore = new THREE.Mesh(pancCoreGeom, roseWallMat);
+  pancreasGroup.add(pancCore);
+
+  // Lobulated acinar surface texture (pebbled pink clusters matching Fig. 2.11)
+  for (let i = 0; i < 34; i++) {
+    const t = i / 33;
+    const pt = pancAxisCurve.getPoint(t);
+    const radiusScale = 1.0 - t * 0.45; // wider at head on left, tapering toward tail on right
+    const rowY = ((i % 3) - 1) * 0.075 * radiusScale;
+    const lobGeom = new THREE.SphereGeometry(0.065 * (0.75 + 0.35 * radiusScale), 10, 10);
+    lobGeom.scale(1.25, 0.85, 0.55);
+    const lob = new THREE.Mesh(lobGeom, i % 2 === 0 ? roseWallMat : deepRoseMat);
+    lob.position.set(pt.x + (i % 2) * 0.02, pt.y + rowY, 0.02);
+    pancreasGroup.add(lob);
+  }
+
+  // Prominent White-Pink Central Pancreatic Duct (Duct of Wirsung) + Fishbone Tributaries
+  const mainPancDuctCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.72, 0.22, 0.055),
+    new THREE.Vector3(-0.52, 0.21, 0.055),
+    new THREE.Vector3(-0.18, 0.14, 0.055),
+    new THREE.Vector3(0.25, 0.11, 0.055),
+    new THREE.Vector3(0.58, 0.12, 0.055)
+  ]);
+  pancreasGroup.add(new THREE.Mesh(new THREE.TubeGeometry(mainPancDuctCurve, 24, 0.02, 8, false), ductMat));
+
+  // Fishbone side-branch ductules
+  for (let b = 1; b <= 9; b++) {
+    const bt = b / 10;
+    const bp = mainPancDuctCurve.getPoint(bt);
+    const side = b % 2 === 0 ? 1 : -1;
+    const branchCurve = new THREE.LineCurve3(
+      bp,
+      new THREE.Vector3(bp.x + 0.06, bp.y + side * 0.065, bp.z)
+    );
+    pancreasGroup.add(new THREE.Mesh(new THREE.TubeGeometry(branchCurve, 4, 0.009, 6, false), ductMat));
+  }
+
+  group.add(pancreasGroup);
+
+  // ============================================================================
+  // 4. HAUSTRATED LARGE INTESTINE (COLON, CUTAWAY CAECUM, APPENDIX & RECTUM)
+  // ============================================================================
+  const colonGroup = new THREE.Group();
+  colonGroup.position.set(0, -explode * 0.35, 0);
+  colonGroup.userData.partInfo = {
+    name: 'Large Intestine (Haustrated Colon, Cutaway Caecum, Appendix & Rectum)',
+    category: 'Water Absorption & Excretion',
+    function: 'Reabsorbs water and electrolytes from undigested residue; stores fecal matter in the rectum before defecation.',
+    fact: 'Features sacculated pouches (haustra), a blind pouch (caecum) with the vermiform appendix on the lower left, and the rectum.',
+    pinId: 'large_intestine'
+  };
+
+  // Helper to build plump haustrated colon segments along a curve
+  const addHaustratedSegment = (pts: THREE.Vector3[], numHaustra: number, radius: number, zOffset = 0.08) => {
+    const curve = new THREE.CatmullRomCurve3(pts);
+    for (let i = 0; i <= numHaustra; i++) {
+      const t = i / numHaustra;
+      const p = curve.getPoint(t);
+      const tangent = curve.getTangent(t);
+      const hGeom = new THREE.SphereGeometry(radius, 16, 14);
+      hGeom.scale(1.12, 0.86, 0.72);
+      const hMesh = new THREE.Mesh(hGeom, i % 2 === 0 ? roseWallMat : deepRoseMat);
+      hMesh.position.set(p.x, p.y, p.z + zOffset);
+      hMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent.normalize());
+      colonGroup.add(hMesh);
+    }
+  };
+
+  // A. Transverse Colon (Sweeping horizontally across the middle in front of duodenum/jejunum)
+  addHaustratedSegment(
+    [
+      new THREE.Vector3(-0.84, -0.18, 0.06),
+      new THREE.Vector3(-0.42, -0.20, 0.09),
+      new THREE.Vector3(0.08, -0.21, 0.09),
+      new THREE.Vector3(0.52, -0.15, 0.07),
+      new THREE.Vector3(0.76, -0.05, 0.05)
+    ],
+    13,
+    0.145,
+    0.06
+  );
+
+  // B. Upper Ascending Colon (Viewer's left, above cutaway window)
+  addHaustratedSegment(
+    [
+      new THREE.Vector3(-0.86, -0.20, 0.02),
+      new THREE.Vector3(-0.86, -0.38, 0.02),
+      new THREE.Vector3(-0.86, -0.56, 0.02)
+    ],
+    4,
+    0.14,
+    0.04
+  );
+
+  // C. Cutaway Lower Ascending Colon & Caecum (Viewer's lower left — exact match to Fig. 2.11!)
+  const caecumCutawayCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.86, -0.58, 0.02),
+    new THREE.Vector3(-0.85, -0.85, 0.02),
+    new THREE.Vector3(-0.78, -1.10, 0.02),
+    new THREE.Vector3(-0.62, -1.24, 0.02)
+  ]);
+  const caecumOuter = new THREE.Mesh(new THREE.TubeGeometry(caecumCutawayCurve, 24, 0.155, 16, false), roseWallMat);
+  caecumOuter.scale.set(1, 1, 0.55);
+  colonGroup.add(caecumOuter);
+
+  const caecumLumen = new THREE.Mesh(new THREE.TubeGeometry(caecumCutawayCurve, 24, 0.115, 14, false), plumLumenMat);
+  caecumLumen.position.z = 0.04;
+  caecumLumen.scale.set(1, 1, 0.42);
+  colonGroup.add(caecumLumen);
+
+  // Rounded Caecum Blind Pouch Base (Cutaway plum cavity + rose rim)
+  const caecumBulbOuter = new THREE.Mesh(new THREE.SphereGeometry(0.16, 18, 16), roseWallMat);
+  caecumBulbOuter.scale.set(1.1, 0.95, 0.55);
+  caecumBulbOuter.position.set(-0.62, -1.24, 0.02);
+  colonGroup.add(caecumBulbOuter);
+
+  const caecumBulbLumen = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 14), plumLumenMat);
+  caecumBulbLumen.scale.set(1.1, 0.95, 0.42);
+  caecumBulbLumen.position.set(-0.62, -1.24, 0.06);
+  colonGroup.add(caecumBulbLumen);
+
+  // Finger-like Vermiform Appendix hanging off the bottom-right of Caecum
+  const appendixCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.52, -1.26, 0.02),
+    new THREE.Vector3(-0.48, -1.35, 0.02),
+    new THREE.Vector3(-0.42, -1.42, 0.02)
+  ]);
+  const appendixMesh = new THREE.Mesh(new THREE.TubeGeometry(appendixCurve, 12, 0.032, 10, false), roseWallMat);
+  colonGroup.add(appendixMesh);
+
+  // D. Descending Colon & Sigmoid Colon (Viewer's right side sweeping down to bottom center)
+  addHaustratedSegment(
+    [
+      new THREE.Vector3(0.74, -0.14, 0.02),
+      new THREE.Vector3(0.72, -0.48, 0.02),
+      new THREE.Vector3(0.72, -0.82, 0.02),
+      new THREE.Vector3(0.66, -1.12, 0.02),
+      new THREE.Vector3(0.45, -1.32, 0.02),
+      new THREE.Vector3(0.15, -1.38, 0.02),
+      new THREE.Vector3(-0.08, -1.36, 0.02)
+    ],
+    16,
+    0.138,
+    0.04
+  );
+
+  // E. Rectum & Anal Canal (Vertical terminal segment at bottom center)
+  const rectumCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.08, -1.36, 0.02),
+    new THREE.Vector3(-0.08, -1.54, 0.02),
+    new THREE.Vector3(-0.06, -1.74, 0.02)
+  ]);
+  const rectumGeom = new THREE.TubeGeometry(rectumCurve, 18, 0.105, 16, false);
+  rectumGeom.scale(1.0, 1.0, 0.68);
+  const rectumMesh = new THREE.Mesh(rectumGeom, roseWallMat);
+  colonGroup.add(rectumMesh);
+
+  group.add(colonGroup);
+
+  // ============================================================================
+  // 5. CENTRAL COILED SMALL INTESTINE (JEJUNUM & ILEUM SERPENTINE FOLDS)
+  // ============================================================================
+  const siGroup = new THREE.Group();
+  siGroup.position.set(0, -explode * 0.15, explode * 0.45);
+  siGroup.userData.partInfo = {
+    name: 'Small Intestine (Coiled Jejunum & Ileum)',
+    category: 'Complete Digestion & Villi Absorption',
+    function: 'Completes enzymatic breakdown of carbohydrates, proteins, and fats; absorbs nutrients via millions of villi.',
+    fact: 'Highly coiled pale-pink tubular canal framed inside the colon and opening into the caecum via the ileocaecal junction.',
+    pinId: 'small_intestine'
+  };
+
+  // Continuous, tightly packed serpentine intestinal coils filling the central frame (matching Fig. 2.11)
+  const serpentineCoils = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.02, -0.46, 0.03),
+    new THREE.Vector3(-0.22, -0.44, 0.04),
+    new THREE.Vector3(-0.42, -0.62, 0.02),
+    new THREE.Vector3(-0.56, -0.42, 0.05),
+    new THREE.Vector3(-0.62, -0.76, 0.03),
+    new THREE.Vector3(-0.42, -0.92, 0.05),
+    new THREE.Vector3(-0.24, -0.68, 0.06),
+    new THREE.Vector3(-0.05, -0.88, 0.04),
+    new THREE.Vector3(0.12, -0.64, 0.06),
+    new THREE.Vector3(0.36, -0.68, 0.03),
+    new THREE.Vector3(0.46, -0.52, 0.05),
+    new THREE.Vector3(0.48, -0.84, 0.04),
+    new THREE.Vector3(0.24, -0.92, 0.06),
+    new THREE.Vector3(0.02, -1.08, 0.04),
+    new THREE.Vector3(0.34, -1.08, 0.03),
+    new THREE.Vector3(0.18, -1.18, 0.05),
+    new THREE.Vector3(-0.18, -1.18, 0.04),
+    new THREE.Vector3(-0.42, -1.14, 0.03)
+  ]);
+  const siTubeGeom = new THREE.TubeGeometry(serpentineCoils, 140, 0.098, 16, false);
+  siTubeGeom.scale(1.0, 1.0, 0.68);
+  const siTubeMesh = new THREE.Mesh(siTubeGeom, palePinkMat);
+  siGroup.add(siTubeMesh);
+
+  // Cutaway Terminal Ileum opening into the Caecum (Ileocaecal junction on lower left, as in Fig. 2.11)
+  const terminalIleumCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.42, -1.14, 0.03),
+    new THREE.Vector3(-0.56, -1.04, 0.03),
+    new THREE.Vector3(-0.72, -1.02, 0.03)
+  ]);
+  const tiOuter = new THREE.Mesh(new THREE.TubeGeometry(terminalIleumCurve, 14, 0.085, 12, false), roseWallMat);
+  tiOuter.scale.set(1, 1, 0.55);
+  siGroup.add(tiOuter);
+
+  const tiLumen = new THREE.Mesh(new THREE.TubeGeometry(terminalIleumCurve, 14, 0.055, 10, false), plumLumenMat);
+  tiLumen.position.z = 0.03;
+  tiLumen.scale.set(1, 1, 0.42);
+  siGroup.add(tiLumen);
+
   group.add(siGroup);
 }
 
@@ -1078,66 +1502,341 @@ function buildStomataModel(group: THREE.Group, opts: ModelOpts) {
   }
 }
 
-// 5. CANDLE FLAME (ZONES OF COMBUSTION)
+// Helper to create organic teardrop flame LatheGeometry with optional vertical color gradient
+function createTeardropFlameGeometry(
+  maxRadius: number,
+  height: number,
+  radialSegments = 36,
+  colorStops?: Array<{ t: number; color: THREE.Color }>
+): THREE.LatheGeometry {
+  const profilePoints: THREE.Vector2[] = [];
+  const steps = 28;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps; // 0 = bottom base around wick, 1 = top pointed apex
+    // Smooth organic teardrop profile matching NCERT Fig. 6.13:
+    // Rounded lower belly peaking around t = 0.34, tapering gracefully to a pointed tip at t = 1.0
+    let r = 0;
+    if (t > 0 && t < 1) {
+      r = maxRadius * Math.pow(Math.sin(t * Math.PI), 0.78) * Math.pow(1 - t * 0.62, 0.95) * 1.42;
+    }
+    profilePoints.push(new THREE.Vector2(Math.max(0, r), t * height));
+  }
+
+  const geom = new THREE.LatheGeometry(profilePoints, radialSegments);
+
+  // Subtle organic S-curve flame tip wave & vertex color gradient
+  const pos = geom.attributes.position;
+  const colors: number[] = [];
+  const tmpColor = new THREE.Color();
+
+  for (let i = 0; i < pos.count; i++) {
+    const vx = pos.getX(i);
+    const vy = pos.getY(i);
+    const vz = pos.getZ(i);
+    const t = Math.max(0, Math.min(1, vy / height));
+
+    // Slight natural flame taper & gentle lean at the very top tip
+    const tipCurve = Math.pow(t, 2.6) * 0.035;
+    pos.setX(i, vx + tipCurve);
+    pos.setZ(i, vz * 0.92); // Slightly flatter front-to-back for crisp cross-sectional clarity
+
+    if (colorStops && colorStops.length > 0) {
+      // Find surrounding stops
+      let c0 = colorStops[0];
+      let c1 = colorStops[colorStops.length - 1];
+      for (let s = 0; s < colorStops.length - 1; s++) {
+        if (t >= colorStops[s].t && t <= colorStops[s + 1].t) {
+          c0 = colorStops[s];
+          c1 = colorStops[s + 1];
+          break;
+        }
+      }
+      const localT = c1.t > c0.t ? (t - c0.t) / (c1.t - c0.t) : 0;
+      tmpColor.lerpColors(c0.color, c1.color, localT);
+      colors.push(tmpColor.r, tmpColor.g, tmpColor.b);
+    }
+  }
+
+  if (colorStops && colorStops.length > 0) {
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  }
+  geom.computeVertexNormals();
+  return geom;
+}
+
+// 5. CANDLE FLAME (ZONES OF COMBUSTION - Exact NCERT Class 8 Fig. 6.13 High-Fidelity 3D Model)
 function buildFlameModel(group: THREE.Group, opts: ModelOpts) {
-  // Candle Cylinder Body
-  const candleGeom = new THREE.CylinderGeometry(0.7, 0.7, 1.4, 24);
-  const candleMat = getMaterial(0xf8fafc, { ...opts, roughness: 0.5 });
-  const candle = new THREE.Mesh(candleGeom, candleMat);
-  candle.position.y = -1.1;
-  candle.userData.partInfo = {
-    name: 'Solid Paraffin Candle & Wick',
-    category: 'Fuel',
-    function: 'Supplies hydrocarbons via capillary melting.',
+  const explode = opts.explodeFactor * 0.75;
+
+  // --- 1. WAX CANDLE PILLAR (White with soft ice-blue shading, concave melted rim & front wax drip) ---
+  const candleGroup = new THREE.Group();
+  candleGroup.position.y = -explode * 0.45;
+  candleGroup.userData.partInfo = {
+    name: 'Wax Candle (Solid Paraffin Fuel)',
+    category: 'Hydrocarbon Fuel Source',
+    function: 'Supplies solid paraffin wax that melts and rises up the wick via capillary action.',
+    fact: 'Paraffin wax is a mixture of higher alkanes (C20–C40) that melts around 55 °C and vaporizes at ~300 °C.',
     pinId: 'wick_wax'
   };
-  group.add(candle);
 
-  // Black cotton wick
-  const wickGeom = new THREE.CylinderGeometry(0.04, 0.04, 0.4, 12);
-  const wickMat = getMaterial(0x1e293b, { roughness: 0.9 });
-  const wick = new THREE.Mesh(wickGeom, wickMat);
-  wick.position.y = -0.3;
-  group.add(wick);
+  // Slightly tapered cylindrical wax body (matches ice-blue shaded white wax cylinder in NCERT diagram)
+  const candleGeom = new THREE.CylinderGeometry(0.46, 0.51, 1.62, 48, 24);
+  const cPos = candleGeom.attributes.position;
+  const candleColors: number[] = [];
+  const centerWhite = new THREE.Color(0xf8fafc);
+  const edgeIceBlue = new THREE.Color(0xbae6fd);
 
-  // Zone 1: Outermost Non-Luminous Blue Zone (Hottest, ~1400 °C)
-  const outerGeom = new THREE.ConeGeometry(0.9, 2.2, 24);
-  const outerMat = getMaterial(0x38bdf8, { ...opts, transparent: true, opacity: 0.38, emissive: 0x0284c7, emissiveIntensity: 0.9 });
-  const outerZone = new THREE.Mesh(outerGeom, outerMat);
-  outerZone.position.y = 0.9;
-  outerZone.userData.partInfo = {
-    name: 'Outermost Blue Zone (Complete Combustion)',
-    category: 'Thermal Zone',
-    function: 'Hottest area (~1400 °C); completely soot-free for goldsmith blowpipes.',
-    pinId: 'outer_zone'
-  };
-  group.add(outerZone);
+  for (let i = 0; i < cPos.count; i++) {
+    const x = cPos.getX(i);
+    const y = cPos.getY(i);
+    const z = cPos.getZ(i);
+    // Subtle organic hand-molded candle contour
+    const radial = Math.sqrt(x * x + z * z);
+    if (y > 0.75 && radial > 0.2) {
+      // Front dip on the top rim where wax drips down
+      const angle = Math.atan2(x, z);
+      const frontNotch = Math.exp(-Math.pow(angle, 2) * 8) * 0.055;
+      const sideWave = Math.sin(angle * 3) * 0.015;
+      cPos.setY(i, y - frontNotch + sideWave);
+    }
+    // Soft ice-blue shading on the right & outer edges just like the textbook illustration
+    const shadeFactor = Math.max(0, Math.min(1, (x / 0.5 + 1) * 0.42 + (1 - Math.abs(z) / 0.5) * 0.25));
+    const col = centerWhite.clone().lerp(edgeIceBlue, shadeFactor);
+    candleColors.push(col.r, col.g, col.b);
+  }
+  candleGeom.setAttribute('color', new THREE.Float32BufferAttribute(candleColors, 3));
+  candleGeom.computeVertexNormals();
 
-  // Zone 2: Middle Luminous Yellow Zone (Incandescent carbon particles, ~1000 °C)
-  const midGeom = new THREE.ConeGeometry(0.65, 1.7, 24);
-  const midMat = getMaterial(0xfbbf24, { ...opts, transparent: true, opacity: 0.75, emissive: 0xf59e0b, emissiveIntensity: 1.1 });
-  const midZone = new THREE.Mesh(midGeom, midMat);
-  midZone.position.y = 0.7;
-  midZone.userData.partInfo = {
-    name: 'Middle Luminous Yellow Zone',
-    category: 'Light Emitting Zone',
-    function: 'Incomplete combustion with glowing free carbon soot.',
-    pinId: 'middle_zone'
-  };
-  group.add(midZone);
+  const candleMat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.28,
+    metalness: 0.04,
+    emissive: 0x38bdf8,
+    emissiveIntensity: 0.08,
+    wireframe: opts.wireframe,
+    transparent: opts.xray,
+    opacity: opts.xray ? 0.45 : 1.0
+  });
+  const candleBody = new THREE.Mesh(candleGeom, candleMat);
+  candleBody.position.y = -1.26;
+  candleGroup.add(candleBody);
 
-  // Zone 3: Innermost Dark Zone (Unburnt wax vapors, ~600 °C)
-  const innerGeom = new THREE.ConeGeometry(0.35, 0.9, 16);
-  const innerMat = getMaterial(0x0f172a, { ...opts, transparent: true, opacity: 0.85, emissive: 0x334155, emissiveIntensity: 0.2 });
-  const innerZone = new THREE.Mesh(innerGeom, innerMat);
-  innerZone.position.y = 0.25;
-  innerZone.userData.partInfo = {
-    name: 'Innermost Dark Zone',
-    category: 'Vapor Reserve',
-    function: 'Contains unburnt wax vapors; zero oxygen access.',
+  // Top Melted Wax Cup Rim (Raised wavy lip with front drip notch)
+  const rimPoints: THREE.Vector3[] = [];
+  const rimSegs = 64;
+  for (let i = 0; i <= rimSegs; i++) {
+    const theta = (i / rimSegs) * Math.PI * 2;
+    const rx = Math.sin(theta) * 0.455;
+    const rz = Math.cos(theta) * 0.455;
+    const frontDip = Math.exp(-Math.pow(theta - Math.PI * 2 * Math.round(theta / (Math.PI * 2)), 2) * 7) * 0.06;
+    const wave = Math.sin(theta * 3) * 0.014;
+    rimPoints.push(new THREE.Vector3(rx, -0.45 - frontDip + wave, rz));
+  }
+  const rimCurve = new THREE.CatmullRomCurve3(rimPoints, true);
+  const rimGeom = new THREE.TubeGeometry(rimCurve, 64, 0.028, 12, true);
+  const rimMat = getMaterial(0xe0f2fe, {
+    ...opts,
+    roughness: 0.22,
+    emissive: 0x7dd3fc,
+    emissiveIntensity: 0.12
+  });
+  const rimMesh = new THREE.Mesh(rimGeom, rimMat);
+  candleGroup.add(rimMesh);
+
+  // Glistening Liquid Molten Wax Pool inside top cup
+  const poolGeom = new THREE.CylinderGeometry(0.43, 0.43, 0.04, 36);
+  const poolMat = getMaterial(0xdbeafe, {
+    ...opts,
+    roughness: 0.12,
+    metalness: 0.1,
+    emissive: 0x93c5fd,
+    emissiveIntensity: 0.18
+  });
+  const poolMesh = new THREE.Mesh(poolGeom, poolMat);
+  poolMesh.position.y = -0.47;
+  candleGroup.add(poolMesh);
+
+  // Subtle dark contour ripples on the left of the top cup (matching the NCERT illustration strokes)
+  const ripplePts1 = [
+    new THREE.Vector3(-0.36, -0.44, 0.12),
+    new THREE.Vector3(-0.39, -0.44, 0.0),
+    new THREE.Vector3(-0.34, -0.44, -0.14)
+  ];
+  const rippleLineMat = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.75 });
+  candleGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ripplePts1), rippleLineMat));
+
+  // Iconic Melted Wax Drip / Tear Running Down Front Center (Exact match to NCERT diagram!)
+  const dripPath = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.02, -0.49, 0.458),
+    new THREE.Vector3(-0.035, -0.58, 0.472),
+    new THREE.Vector3(-0.015, -0.68, 0.476),
+    new THREE.Vector3(-0.025, -0.78, 0.478)
+  ]);
+  const dripTubeGeom = new THREE.TubeGeometry(dripPath, 20, 0.024, 10, false);
+  const dripMat = getMaterial(0xe0f2fe, {
+    ...opts,
+    roughness: 0.18,
+    emissive: 0xbae6fd,
+    emissiveIntensity: 0.15
+  });
+  const dripTube = new THREE.Mesh(dripTubeGeom, dripMat);
+  candleGroup.add(dripTube);
+
+  // Rounded Teardrop Bead at bottom of the wax drip
+  const tearGeom = new THREE.SphereGeometry(0.042, 16, 16);
+  tearGeom.scale(0.95, 1.35, 0.7);
+  const tearBead = new THREE.Mesh(tearGeom, dripMat);
+  tearBead.position.set(-0.022, -0.81, 0.478);
+  candleGroup.add(tearBead);
+
+  // --- 2. BRAIDED COTTON WICK (Slightly curved dark wick emerging from molten pool) ---
+  const wickCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, -0.47, 0),
+    new THREE.Vector3(-0.008, -0.34, 0),
+    new THREE.Vector3(0.005, -0.21, 0),
+    new THREE.Vector3(0.028, -0.11, 0)
+  ]);
+  const wickGeom = new THREE.TubeGeometry(wickCurve, 20, 0.026, 10, false);
+  const wickMat = getMaterial(0x18181b, {
+    ...opts,
+    roughness: 0.9,
+    emissive: 0x27272a,
+    emissiveIntensity: 0.2
+  });
+  const wickMesh = new THREE.Mesh(wickGeom, wickMat);
+  candleGroup.add(wickMesh);
+
+  group.add(candleGroup);
+
+  // --- 3. CONCENTRIC TEARDROP FLAME ZONES (Animated Group) ---
+  const flameGroup = new THREE.Group();
+  flameGroup.name = 'flickering_flame';
+  group.add(flameGroup);
+
+  // ZONE A: INNERMOST ZONE OF UNBURNT WAX VAPOURS (BLACK) - Least Hot (~600 °C)
+  const innerGroup = new THREE.Group();
+  innerGroup.position.set(0, -0.36 - explode * 0.15, 0);
+  innerGroup.userData.partInfo = {
+    name: 'Innermost Zone of Unburnt Wax Vapours (Black) — Least Hot',
+    category: 'Innermost Dark Zone (~600 °C)',
+    function: 'Contains unburnt paraffin wax vapours surrounding the wick with zero atmospheric oxygen access.',
+    fact: 'Least hot part of the candle flame (~600 °C); no combustion takes place here.',
     pinId: 'inner_dark_zone'
   };
-  group.add(innerZone);
+
+  const innerDarkGeom = createTeardropFlameGeometry(0.125, 0.56, 32, [
+    { t: 0.0, color: new THREE.Color(0x090d16) },
+    { t: 0.55, color: new THREE.Color(0x1e293b) },
+    { t: 1.0, color: new THREE.Color(0x475569) }
+  ]);
+  const innerDarkMat = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: opts.xray ? 0.45 : 0.92,
+    wireframe: opts.wireframe,
+    side: THREE.DoubleSide
+  });
+  const innerDarkMesh = new THREE.Mesh(innerDarkGeom, innerDarkMat);
+  innerGroup.add(innerDarkMesh);
+  flameGroup.add(innerGroup);
+
+  // ZONE B: MIDDLE ZONE OF PARTIAL COMBUSTION (YELLOW -> ORANGE -> RED GRADIENT) - Moderately Hot (~1000 °C)
+  const middleGroup = new THREE.Group();
+  middleGroup.position.set(0, -0.34 + explode * 0.15, 0);
+  middleGroup.userData.partInfo = {
+    name: 'Middle Zone of Partial Combustion (Yellow) — Moderately Hot',
+    category: 'Luminous Middle Zone (~1000 °C)',
+    function: 'Limited oxygen causes partial combustion; glowing incandescent carbon particles emit bright yellow-orange light.',
+    fact: 'Moderately hot (~1000 °C); deposits black carbon soot if a cool glass plate is held inside it.',
+    pinId: 'middle_zone'
+  };
+
+  // Inner bright yellow luminous core (lower-middle belly of the flame, matching NCERT illustration)
+  const yellowCoreGeom = createTeardropFlameGeometry(0.29, 1.38, 36, [
+    { t: 0.0, color: new THREE.Color(0xfef08a) },
+    { t: 0.38, color: new THREE.Color(0xfacc15) },
+    { t: 0.72, color: new THREE.Color(0xfb923c) },
+    { t: 1.0, color: new THREE.Color(0xef4444) }
+  ]);
+  const yellowCoreMat = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: opts.xray ? 0.35 : 0.86,
+    wireframe: opts.wireframe,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const yellowCoreMesh = new THREE.Mesh(yellowCoreGeom, yellowCoreMat);
+  middleGroup.add(yellowCoreMesh);
+
+  // Outer luminous yellow-orange-red shell (smoothly blends from golden yellow at bottom to fiery orange-red at top peak)
+  const midOuterGeom = createTeardropFlameGeometry(0.41, 1.84, 40, [
+    { t: 0.0, color: new THREE.Color(0xfde047) },
+    { t: 0.28, color: new THREE.Color(0xfbbf24) },
+    { t: 0.55, color: new THREE.Color(0xf97316) },
+    { t: 0.80, color: new THREE.Color(0xef4444) },
+    { t: 1.0, color: new THREE.Color(0xdc2626) }
+  ]);
+  const midOuterMat = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: opts.xray ? 0.3 : 0.74,
+    wireframe: opts.wireframe,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const midOuterMesh = new THREE.Mesh(midOuterGeom, midOuterMat);
+  middleGroup.add(midOuterMesh);
+  flameGroup.add(middleGroup);
+
+  // ZONE C: OUTER ZONE OF COMPLETE COMBUSTION (BLUE) - Hottest Part (~1400 °C)
+  const outerGroup = new THREE.Group();
+  outerGroup.position.set(0, -0.38 + explode * 0.45, 0);
+  outerGroup.userData.partInfo = {
+    name: 'Outer Zone of Complete Combustion (Blue) — Hottest Part',
+    category: 'Non-Luminous Outer Zone (~1400 °C)',
+    function: 'Plentiful atmospheric oxygen enables complete oxidation of wax vapours into CO2 and water vapour.',
+    fact: 'Hottest part of the flame (~1400 °C); goldsmiths blow into this blue zone using a metallic blowpipe.',
+    pinId: 'outer_zone'
+  };
+
+  // Translucent blue-violet outer combustion sheath enveloping the entire flame
+  const outerBlueGeom = createTeardropFlameGeometry(0.49, 2.04, 40, [
+    { t: 0.0, color: new THREE.Color(0x60a5fa) },
+    { t: 0.35, color: new THREE.Color(0x3b82f6) },
+    { t: 0.75, color: new THREE.Color(0x6366f1) },
+    { t: 1.0, color: new THREE.Color(0x818cf8) }
+  ]);
+  const outerBlueMat = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: opts.xray ? 0.25 : 0.36,
+    wireframe: opts.wireframe,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const outerBlueMesh = new THREE.Mesh(outerBlueGeom, outerBlueMat);
+  outerGroup.add(outerBlueMesh);
+
+  // Soft outer periwinkle-blue atmospheric glow veil (matches the soft blue-violet halo in the NCERT diagram)
+  const haloGeom = createTeardropFlameGeometry(0.55, 2.12, 36, [
+    { t: 0.0, color: new THREE.Color(0x93c5fd) },
+    { t: 0.5, color: new THREE.Color(0x60a5fa) },
+    { t: 1.0, color: new THREE.Color(0xa5b4fc) }
+  ]);
+  const haloMat = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: opts.xray ? 0.12 : 0.18,
+    wireframe: false,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const haloMesh = new THREE.Mesh(haloGeom, haloMat);
+  haloMesh.position.y = -0.02;
+  outerGroup.add(haloMesh);
+
+  flameGroup.add(outerGroup);
 }
 
 // 6. HUMAN EYE & OPTICAL REFRACTION (Exact High-Fidelity 3D Anatomical Model from 3D Learning)
@@ -1624,10 +2323,10 @@ function buildNephronModel(group: THREE.Group, opts: ModelOpts) {
   group.add(boundary);
 
   // Bowman's Capsule (Double-walled cutaway spherical cup with golden sheen)
-  const cupGeom = new THREE.SphereGeometry(0.58, 28, 28, 0, Math.PI * 2, 0, Math.PI * 0.65);
+  const cupGeom = new THREE.SphereGeometry(0.58, 28, 28, 0, Math.PI * 2, 0, Math.PI * (0.65 - opts.explodeFactor * 0.15));
   const cupMat = getMaterial(0xfbbf24, { ...opts, side: THREE.DoubleSide, roughness: 0.25, metalness: 0.2, emissive: 0xd97706, emissiveIntensity: 0.35 });
   const capsule = new THREE.Mesh(cupGeom, cupMat);
-  capsule.position.set(-1.1 - explode * 0.6, 1.1 + explode * 0.4, 0);
+  capsule.position.set(-1.1 - explode * 0.75, 1.1 + explode * 0.55, -explode * 0.3);
   capsule.rotation.x = Math.PI * 0.7;
   capsule.userData.partInfo = {
     name: "Bowman's Capsule (Parietal & Visceral Layers)",
@@ -1641,7 +2340,7 @@ function buildNephronModel(group: THREE.Group, opts: ModelOpts) {
   const glomGeom = new THREE.TorusKnotGeometry(0.25, 0.07, 64, 16, 2, 3);
   const glomMat = getMaterial(0xef4444, { ...opts, metalness: 0.4, roughness: 0.2, emissive: 0xdc2626, emissiveIntensity: 0.85 });
   const glom = new THREE.Mesh(glomGeom, glomMat);
-  glom.position.set(-1.1 - explode * 0.6, 1.1 + explode * 0.4, 0);
+  glom.position.set(-1.1 - explode * 0.35, 1.1 + explode * 0.2, explode * 0.35);
   glom.userData.partInfo = {
     name: 'Glomerulus Capillary Knot',
     category: 'High-Pressure Microvascular Bed',
@@ -2249,157 +2948,572 @@ function buildHeartModel(group: THREE.Group, opts: ModelOpts) {
   heartBody.add(internalGroup);
 }
 
-// 11. ELECTRIC MOTOR (ARMATURE & COMMUTATOR - Stylized Precision Model)
+// Helper to generate crisp transparent 2D canvas texture labels in 3D space
+function createDiagramLabelPlane(
+  lines: Array<{ text: string; font: string; color: string; y: number }>,
+  widthWorld: number,
+  heightWorld: number,
+  canvasW = 256,
+  canvasH = 128,
+  frontSideOnly = false
+): THREE.Mesh {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvasW;
+  canvas.height = canvasH;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.clearRect(0, 0, canvasW, canvasH);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    lines.forEach((line) => {
+      ctx.font = line.font;
+      ctx.fillStyle = line.color;
+      ctx.fillText(line.text, canvasW / 2, line.y);
+    });
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  const mat = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    depthWrite: false,
+    depthTest: true,
+    side: frontSideOnly ? THREE.FrontSide : THREE.DoubleSide
+  });
+  return new THREE.Mesh(new THREE.PlaneGeometry(widthWorld, heightWorld), mat);
+}
+
+// 11. ELECTRIC MOTOR (ARMATURE & COMMUTATOR - Exact Textbook Diagram 3D Model)
 function buildMotorModel(group: THREE.Group, opts: ModelOpts) {
-  // Stator Base / Yoke Frame
-  const yokeGeom = new THREE.CylinderGeometry(1.8, 1.8, 0.25, 32, 1, true, -Math.PI * 0.45, Math.PI * 0.9);
-  const yokeMat = getMaterial(0x334155, { ...opts, metalness: 0.8, roughness: 0.4 });
-  const yoke = new THREE.Mesh(yokeGeom, yokeMat);
-  yoke.position.y = -0.7;
-  yoke.rotation.x = Math.PI / 2;
-  group.add(yoke);
+  const explode = opts.explodeFactor * 0.75;
 
-  // Permanent Magnetic Curved Pole Shoes (North Red, South Blue)
-  const poleShoeGeom = new THREE.CylinderGeometry(1.4, 1.4, 1.5, 24, 1, false, 0, Math.PI * 0.45);
-  
-  // North Pole Shoe (Red)
-  const nMat = getMaterial(0xef4444, { ...opts, metalness: 0.7, roughness: 0.25, emissive: 0xdc2626, emissiveIntensity: 0.4 });
-  const northPole = new THREE.Mesh(poleShoeGeom, nMat);
-  northPole.rotation.z = Math.PI / 2;
-  northPole.rotation.y = Math.PI * 0.78;
-  northPole.position.set(-1.1, 0, 0);
-  northPole.userData.partInfo = {
+  // ============================================================================
+  // 1. LEFT (NORTH - RED) & RIGHT (SOUTH - BLUE) CONCAVE BLOCK POLE MAGNETS
+  // ============================================================================
+  const magDepth = 1.45;
+  const magHalfD = magDepth / 2;
+
+  // Left North Pole Shape (Block with concave semi-circular inner cutout on right face)
+  const northShape = new THREE.Shape();
+  northShape.moveTo(-1.85, -0.78);
+  northShape.lineTo(-0.92, -0.78);
+  northShape.lineTo(-0.92, -0.52);
+  northShape.absarc(-0.92, 0, 0.52, -Math.PI / 2, Math.PI / 2, false);
+  northShape.lineTo(-0.92, 0.78);
+  northShape.lineTo(-1.85, 0.78);
+  northShape.closePath();
+
+  const poleExtrudeOpts = {
+    depth: magDepth,
+    bevelEnabled: true,
+    bevelSegments: 2,
+    steps: 1,
+    bevelSize: 0.015,
+    bevelThickness: 0.015
+  };
+
+  const northGroup = new THREE.Group();
+  northGroup.position.set(-explode * 0.55, 0.12, -0.1);
+  northGroup.userData.partInfo = {
     name: 'North Magnetic Pole (N)',
-    category: 'Permanent Magnet Stator',
-    function: 'Creates uniform horizontal magnetic field B pointing towards South pole.',
+    category: 'Permanent Stator Magnet',
+    function: 'Red concave pole block generating a uniform horizontal magnetic field.',
+    fact: 'Concave cylindrical pole face concentrates radial magnetic flux through the armature loop.',
     pinId: 'magnetic_poles'
   };
-  group.add(northPole);
 
-  // South Pole Shoe (Blue)
-  const sMat = getMaterial(0x0284c7, { ...opts, metalness: 0.7, roughness: 0.25, emissive: 0x0369a1, emissiveIntensity: 0.4 });
-  const southPole = new THREE.Mesh(poleShoeGeom, sMat);
-  southPole.rotation.z = Math.PI / 2;
-  southPole.rotation.y = -Math.PI * 0.22;
-  southPole.position.set(1.1, 0, 0);
-  southPole.userData.partInfo = {
+  const northMat = getMaterial(0xdf5b5b, {
+    ...opts,
+    roughness: 0.35,
+    metalness: 0.1,
+    emissive: 0xb91c1c,
+    emissiveIntensity: 0.18
+  });
+  const northMesh = new THREE.Mesh(new THREE.ExtrudeGeometry(northShape, poleExtrudeOpts), northMat);
+  northMesh.position.z = -magHalfD;
+  northGroup.add(northMesh);
+
+  // Darker crimson inner concave trough liner for visual depth matching the diagram
+  const northTroughGeom = new THREE.CylinderGeometry(0.515, 0.515, magDepth, 28, 1, true, 0, Math.PI);
+  const northTroughMat = getMaterial(0xb83b3b, { ...opts, roughness: 0.45, metalness: 0.08, side: THREE.DoubleSide });
+  const northTrough = new THREE.Mesh(northTroughGeom, northTroughMat);
+  northTrough.rotation.x = Math.PI / 2;
+  northTrough.position.set(-0.92, 0, 0);
+  northGroup.add(northTrough);
+
+  // "N / North pole" label on front face of North Magnet
+  if (!opts.wireframe) {
+    const nLabel = createDiagramLabelPlane(
+      [
+        { text: 'N', font: 'bold 104px Inter, sans-serif', color: '#ffffff', y: 92 },
+        { text: 'North pole', font: '600 32px Inter, sans-serif', color: '#271717', y: 182 }
+      ],
+      0.72,
+      0.72,
+      256,
+      256,
+      true
+    );
+    nLabel.position.set(-1.42, -0.04, magHalfD + 0.022);
+    northGroup.add(nLabel);
+  }
+  group.add(northGroup);
+
+  // Right South Pole Shape (Block with concave semi-circular inner cutout on left face)
+  const southShape = new THREE.Shape();
+  southShape.moveTo(0.92, -0.78);
+  southShape.lineTo(1.85, -0.78);
+  southShape.lineTo(1.85, 0.78);
+  southShape.lineTo(0.92, 0.78);
+  southShape.lineTo(0.92, 0.52);
+  southShape.absarc(0.92, 0, 0.52, Math.PI / 2, -Math.PI / 2, false);
+  southShape.closePath();
+
+  const southGroup = new THREE.Group();
+  southGroup.position.set(explode * 0.55, 0.12, -0.1);
+  southGroup.userData.partInfo = {
     name: 'South Magnetic Pole (S)',
-    category: 'Permanent Magnet Stator',
-    function: 'Terminates magnetic field lines completing the magnetic circuit.',
+    category: 'Permanent Stator Magnet',
+    function: 'Blue concave pole block completing the magnetic circuit across the air gap.',
+    fact: 'Works with the North pole to sustain a horizontal magnetic field B across the armature.',
     pinId: 'magnetic_poles'
   };
-  group.add(southPole);
 
-  // Magnetic Field Lines (Cyan glowing flux tubes linking N to S)
+  const southMat = getMaterial(0x5693e8, {
+    ...opts,
+    roughness: 0.35,
+    metalness: 0.1,
+    emissive: 0x1d4ed8,
+    emissiveIntensity: 0.18
+  });
+  const southMesh = new THREE.Mesh(new THREE.ExtrudeGeometry(southShape, poleExtrudeOpts), southMat);
+  southMesh.position.z = -magHalfD;
+  southGroup.add(southMesh);
+
+  // Darker cobalt inner concave trough liner
+  const southTroughGeom = new THREE.CylinderGeometry(0.515, 0.515, magDepth, 28, 1, true, Math.PI, Math.PI);
+  const southTroughMat = getMaterial(0x376cb8, { ...opts, roughness: 0.45, metalness: 0.08, side: THREE.DoubleSide });
+  const southTrough = new THREE.Mesh(southTroughGeom, southTroughMat);
+  southTrough.rotation.x = Math.PI / 2;
+  southTrough.position.set(0.92, 0, 0);
+  southGroup.add(southTrough);
+
+  // "S / South pole" label on front face of South Magnet
+  if (!opts.wireframe) {
+    const sLabel = createDiagramLabelPlane(
+      [
+        { text: 'S', font: 'bold 104px Inter, sans-serif', color: '#ffffff', y: 92 },
+        { text: 'South pole', font: '600 32px Inter, sans-serif', color: '#112238', y: 182 }
+      ],
+      0.72,
+      0.72,
+      256,
+      256,
+      true
+    );
+    sLabel.position.set(1.42, -0.04, magHalfD + 0.022);
+    southGroup.add(sLabel);
+  }
+  group.add(southGroup);
+
+  // ============================================================================
+  // 2. DASHED GREEN MAGNETIC FIELD (B) LINES & DIRECTION ARROW
+  // ============================================================================
   const fluxGroup = new THREE.Group();
-  for (let f = -2; f <= 2; f++) {
-    const yF = f * 0.18;
-    const fluxCurve = new THREE.LineCurve3(new THREE.Vector3(-1.0, yF, -0.4), new THREE.Vector3(1.0, yF, -0.4));
-    const fluxGeom = new THREE.TubeGeometry(fluxCurve, 8, 0.015, 6, false);
-    const fluxMat = getMaterial(0x22d3ee, { transparent: true, opacity: 0.45, emissive: 0x06b6d4, emissiveIntensity: 0.8 });
-    const fluxLine = new THREE.Mesh(fluxGeom, fluxMat);
-    fluxGroup.add(fluxLine);
+  fluxGroup.position.set(0, 0.12 + explode * 0.25, -0.1);
+  fluxGroup.userData.partInfo = {
+    name: 'Magnetic Field Lines (B)',
+    category: 'Uniform Magnetic Flux',
+    function: 'Horizontal magnetic field lines between the concave North and South poles.',
+    fact: 'Interacts with the perpendicular current I in the armature arms to produce Lorentz force F = I(L × B).',
+    pinId: 'magnetic_poles'
+  };
+
+  const dashMat = new THREE.LineBasicMaterial({ color: 0x2d6a4f, transparent: true, opacity: 0.85 });
+  const zRows = [-0.42, -0.26, -0.12, 0.14, 0.28, 0.42];
+  zRows.forEach((zPos, rIdx) => {
+    for (let d = -4; d <= 3; d++) {
+      // Leave clear central window for the bold "<- B" arrow and label
+      if ((rIdx === 2 || rIdx === 3) && d >= -2 && d <= 1) continue;
+      const xStart = d * 0.14;
+      const xEnd = xStart + 0.08;
+      const pts = [new THREE.Vector3(xStart, 0, zPos), new THREE.Vector3(xEnd, 0, zPos)];
+      fluxGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), dashMat));
+    }
+  });
+
+  // Central Bold Green Magnetic Field Arrow (<--- B) matching the diagram
+  const bArrowMat = getMaterial(0x2d6a4f, { emissive: 0x1b4332, emissiveIntensity: 0.4 });
+  const bShaftGeom = new THREE.CylinderGeometry(0.016, 0.016, 0.52, 12);
+  bShaftGeom.rotateZ(Math.PI / 2);
+  const bShaft = new THREE.Mesh(bShaftGeom, bArrowMat);
+  bShaft.position.set(0.04, 0, 0.01);
+  fluxGroup.add(bShaft);
+
+  const bHeadGeom = new THREE.ConeGeometry(0.05, 0.13, 14);
+  bHeadGeom.rotateZ(Math.PI / 2);
+  const bHead = new THREE.Mesh(bHeadGeom, bArrowMat);
+  bHead.position.set(-0.24, 0, 0.01);
+  fluxGroup.add(bHead);
+
+  if (!opts.wireframe) {
+    // Separate compact 'B' badge above arrow and 'Magnetic field' badge below arrow so neither intersects the arrow shaft
+    const bTopLabel = createDiagramLabelPlane(
+      [{ text: 'B', font: 'bold 76px Inter, sans-serif', color: '#4ade80', y: 64 }],
+      0.26,
+      0.22,
+      128,
+      128
+    );
+    bTopLabel.position.set(0.02, 0.16, 0.01);
+    fluxGroup.add(bTopLabel);
+
+    const bBotLabel = createDiagramLabelPlane(
+      [{ text: 'Magnetic field', font: '600 34px Inter, sans-serif', color: '#e2e8f0', y: 64 }],
+      0.66,
+      0.20,
+      256,
+      96
+    );
+    bBotLabel.position.set(0.02, -0.15, 0.01);
+    fluxGroup.add(bBotLabel);
   }
   group.add(fluxGroup);
 
-  // Rotating Armature Group
+  // ============================================================================
+  // 3. HORIZONTAL COPPER ARMATURE LOOP, LORENTZ FORCE (F) & ROTATION ARROWS
+  // ============================================================================
   const armatureGroup = new THREE.Group();
   armatureGroup.name = 'rotating_motor_armature';
+  armatureGroup.position.set(0, 0.12 + explode * 0.4, -0.1);
   group.add(armatureGroup);
 
-  // Cylindrical Laminated Soft Iron Armature Core
-  const coreGeom = new THREE.CylinderGeometry(0.35, 0.35, 1.2, 24);
-  const coreMat = getMaterial(0x64748b, { metalness: 0.85, roughness: 0.35 });
-  const ironCore = new THREE.Mesh(coreGeom, coreMat);
-  ironCore.rotation.x = Math.PI / 2;
-  armatureGroup.add(ironCore);
+  const copperMat = getMaterial(0xe8932c, {
+    ...opts,
+    metalness: 0.55,
+    roughness: 0.25,
+    emissive: 0xb45309,
+    emissiveIntensity: 0.28
+  });
 
-  // Rectangular Multi-turn Copper Coil ABCD
-  const coilPoints = [
-    new THREE.Vector3(-0.65, 0.42, -0.65),
-    new THREE.Vector3(0.65, 0.42, -0.65),
-    new THREE.Vector3(0.65, 0.42, 0.65),
-    new THREE.Vector3(-0.65, 0.42, 0.65),
-    new THREE.Vector3(-0.65, 0.42, -0.65)
+  // Left half of Copper Armature Loop (from Left Commutator neck -> front-left -> back-left -> back-center)
+  const leftCoilPts = [
+    new THREE.Vector3(-0.13, -0.06, 0.92),
+    new THREE.Vector3(-0.13, 0, 0.48),
+    new THREE.Vector3(-0.68, 0, 0.48),
+    new THREE.Vector3(-0.68, 0, -0.58),
+    new THREE.Vector3(0.0, 0, -0.58)
   ];
-  const coilCurve = new THREE.CatmullRomCurve3(coilPoints, true);
-  const coilGeom = new THREE.TubeGeometry(coilCurve, 36, 0.055, 8, true);
-  const coilMat = getMaterial(0xf59e0b, { ...opts, metalness: 0.95, roughness: 0.15, emissive: 0xd97706, emissiveIntensity: 0.6 });
-  const coil = new THREE.Mesh(coilGeom, coilMat);
-  coil.userData.partInfo = {
-    name: 'Rectangular Armature Coil ABCD',
-    category: 'Rotor Winding',
-    function: 'Experiences opposing Lorentz forces generating rotational couple.',
+  // Right half of Copper Armature Loop (from back-center -> back-right -> front-right -> Right Commutator neck)
+  const rightCoilPts = [
+    new THREE.Vector3(0.0, 0, -0.58),
+    new THREE.Vector3(0.68, 0, -0.58),
+    new THREE.Vector3(0.68, 0, 0.48),
+    new THREE.Vector3(0.13, 0, 0.48),
+    new THREE.Vector3(0.13, -0.06, 0.92)
+  ];
+
+  // Build crisp mitred/rounded rectangular copper segments
+  const buildSegmentedPipe = (pts: THREE.Vector3[], radius: number, mat: THREE.Material) => {
+    const pipeGroup = new THREE.Group();
+    for (let i = 0; i < pts.length - 1; i++) {
+      const segCurve = new THREE.LineCurve3(pts[i], pts[i + 1]);
+      const segMesh = new THREE.Mesh(new THREE.TubeGeometry(segCurve, 12, radius, 14, false), mat);
+      pipeGroup.add(segMesh);
+      const joint = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.04, 14, 14), mat);
+      joint.position.copy(pts[i + 1]);
+      pipeGroup.add(joint);
+    }
+    return pipeGroup;
+  };
+
+  const coilMeshGroup = new THREE.Group();
+  coilMeshGroup.add(buildSegmentedPipe(leftCoilPts, 0.044, copperMat));
+  coilMeshGroup.add(buildSegmentedPipe(rightCoilPts, 0.044, copperMat));
+  coilMeshGroup.userData.partInfo = {
+    name: 'Rectangular Copper Armature Loop',
+    category: 'Rotor Conductor Winding',
+    function: 'Carries electric current I through the magnetic field B; opposite forces on the left and right arms create rotational torque.',
+    fact: 'Left arm carries current away from the front while right arm carries current toward the front.',
     pinId: 'armature_coil'
   };
-  armatureGroup.add(coil);
+  armatureGroup.add(coilMeshGroup);
 
-  // Central Rotating Drive Shaft
-  const shaftGeom = new THREE.CylinderGeometry(0.08, 0.08, 2.7, 16);
-  const shaftMat = getMaterial(0x94a3b8, { metalness: 0.9, roughness: 0.2 });
-  const shaft = new THREE.Mesh(shaftGeom, shaftMat);
-  shaft.rotation.x = Math.PI / 2;
-  shaft.userData.partInfo = {
-    name: 'Central Transmission Shaft / Axle',
-    category: 'Mechanical Output',
-    function: 'Transfers mechanical rotational work to external load.',
-    pinId: 'rotation_shaft'
-  };
-  armatureGroup.add(shaft);
+  // Yellow Current-Direction Arrows along the Copper Armature Arms
+  const yellowArrowMat = getMaterial(0xfacc15, { emissive: 0xeab308, emissiveIntensity: 0.7 });
+  // Left arm arrow pointing backward (-Z)
+  const leftCurrCone = new THREE.Mesh(new THREE.ConeGeometry(0.062, 0.14, 12), yellowArrowMat);
+  leftCurrCone.rotation.x = -Math.PI / 2;
+  leftCurrCone.position.set(-0.68, 0.03, -0.05);
+  armatureGroup.add(leftCurrCone);
 
-  // Split-Ring Commutator (Two polished brass half-rings with insulated gap)
-  const ring1Geom = new THREE.CylinderGeometry(0.2, 0.2, 0.38, 20, 1, true, 0, Math.PI * 0.82);
-  const commMat = getMaterial(0xd97706, { metalness: 0.95, roughness: 0.15, emissive: 0xb45309, emissiveIntensity: 0.3 });
-  const ring1 = new THREE.Mesh(ring1Geom, commMat);
-  ring1.position.z = 1.05;
-  ring1.userData.partInfo = {
-    name: 'Split-Ring Commutator Segment P',
-    category: 'Mechanical Inverter',
-    function: 'Reverses current flow in coil arms every 180° to sustain unidirectional torque.',
+  // Right arm arrow pointing forward (+Z)
+  const rightCurrCone = new THREE.Mesh(new THREE.ConeGeometry(0.062, 0.14, 12), yellowArrowMat);
+  rightCurrCone.rotation.x = Math.PI / 2;
+  rightCurrCone.position.set(0.68, 0.03, -0.02);
+  armatureGroup.add(rightCurrCone);
+
+  // Purple Vertical Lorentz Force Arrows (F), Curved Rotation Arrows, & Label — only visible when Explode / Cross-Section >= 58%
+  if (opts.explodeFactor >= 0.58) {
+    const forceGroup = new THREE.Group();
+    forceGroup.userData.partInfo = {
+      name: 'Magnetic Force (Lorentz forces (F = I · L × B))',
+      category: 'Electromagnetic Couple',
+      function: 'Upward force F on the left arm and downward force F on the right arm create a clockwise turning torque.',
+      fact: 'Direction determined by Fleming’s Left-Hand Rule.',
+      pinId: 'magnetic_force'
+    };
+    const purpleForceMat = getMaterial(0x9333ea, { emissive: 0x7e22ce, emissiveIntensity: 0.65 });
+
+    // Left Upward Purple Force Arrow (F)
+    const fLeftShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.48, 12), purpleForceMat);
+    fLeftShaft.position.set(-0.68, 0.28, -0.32);
+    forceGroup.add(fLeftShaft);
+
+    const fLeftHead = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.14, 14), purpleForceMat);
+    fLeftHead.position.set(-0.68, 0.55, -0.32);
+    forceGroup.add(fLeftHead);
+
+    // Right Downward Purple Force Arrow (F)
+    const fRightShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.48, 12), purpleForceMat);
+    fRightShaft.position.set(0.68, 0.32, -0.32);
+    forceGroup.add(fRightShaft);
+
+    const fRightHead = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.14, 14), purpleForceMat);
+    fRightHead.rotation.z = Math.PI;
+    fRightHead.position.set(0.68, 0.08, -0.32);
+    forceGroup.add(fRightHead);
+
+    // Curved Red Rotation Arrows (matching diagram, offset cleanly from F arrow)
+    const redRotMat = getMaterial(0xef4444, { emissive: 0xdc2626, emissiveIntensity: 0.6 });
+    const leftArcCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-0.38, 0.36, -0.46),
+      new THREE.Vector3(-0.30, 0.50, -0.46),
+      new THREE.Vector3(-0.16, 0.58, -0.46)
+    ]);
+    forceGroup.add(new THREE.Mesh(new THREE.TubeGeometry(leftArcCurve, 14, 0.012, 8, false), redRotMat));
+    const leftArcHead = new THREE.Mesh(new THREE.ConeGeometry(0.036, 0.09, 10), redRotMat);
+    leftArcHead.position.set(-0.14, 0.59, -0.46);
+    leftArcHead.rotation.z = -Math.PI * 0.35;
+    forceGroup.add(leftArcHead);
+
+    const rightArcCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.50, -0.02, -0.20),
+      new THREE.Vector3(0.42, -0.16, -0.20),
+      new THREE.Vector3(0.28, -0.24, -0.20)
+    ]);
+    forceGroup.add(new THREE.Mesh(new THREE.TubeGeometry(rightArcCurve, 14, 0.012, 8, false), redRotMat));
+    const rightArcHead = new THREE.Mesh(new THREE.ConeGeometry(0.036, 0.09, 10), redRotMat);
+    rightArcHead.position.set(0.26, -0.25, -0.20);
+    rightArcHead.rotation.z = Math.PI * 0.65;
+    forceGroup.add(rightArcHead);
+
+    if (!opts.wireframe) {
+      const fLabel = createDiagramLabelPlane(
+        [
+          { text: 'F', font: 'bold 76px Inter, sans-serif', color: '#c084fc', y: 48 },
+          { text: 'Magnetic Force (Lorentz forces (F = I · L × B))', font: '600 22px Inter, sans-serif', color: '#e9d5ff', y: 102 }
+        ],
+        1.15,
+        0.32,
+        512,
+        140
+      );
+      fLabel.position.set(-0.22, 0.72, -0.32);
+      forceGroup.add(fLabel);
+    }
+    armatureGroup.add(forceGroup);
+  }
+
+  // ============================================================================
+  // 4. SPLIT-RING COMMUTATOR (TWO GOLDEN-ORANGE HALF-RINGS WITH VERTICAL GAP)
+  // ============================================================================
+  const commGroup = new THREE.Group();
+  commGroup.position.set(0, -0.10, 0.92);
+  commGroup.userData.partInfo = {
+    name: 'Split-Ring Commutator',
+    category: 'Mechanical Current Inverter',
+    function: 'Two insulated metallic half-rings that reverse the direction of current through the armature loop every half-turn (180°).',
+    fact: 'Ensures both armature arms always experience torque in the same clockwise rotational direction.',
     pinId: 'split_rings'
   };
-  armatureGroup.add(ring1);
 
-  const ring2 = new THREE.Mesh(ring1Geom, commMat);
-  ring2.position.z = 1.05;
-  ring2.rotation.y = Math.PI;
-  ring2.userData.partInfo = {
-    name: 'Split-Ring Commutator Segment Q',
-    category: 'Mechanical Inverter',
-    function: 'Works with brushes to reverse armature current polarity.',
-    pinId: 'split_rings'
+  // Build C-shaped half-ring using ExtrudeGeometry for thick, crisp textbook commutator halves
+  const createCommutatorHalf = (isLeft: boolean) => {
+    const rOuter = 0.25;
+    const rInner = 0.155;
+    const gapAngle = 0.14;
+    const startAngle = isLeft ? Math.PI / 2 + gapAngle : -Math.PI / 2 + gapAngle;
+    const endAngle = isLeft ? (3 * Math.PI) / 2 - gapAngle : Math.PI / 2 - gapAngle;
+
+    const cShape = new THREE.Shape();
+    cShape.absarc(0, 0, rOuter, startAngle, endAngle, false);
+    cShape.absarc(0, 0, rInner, endAngle, startAngle, true);
+    cShape.closePath();
+
+    const cGeom = new THREE.ExtrudeGeometry(cShape, {
+      depth: 0.24,
+      bevelEnabled: true,
+      bevelSegments: 2,
+      steps: 1,
+      bevelSize: 0.008,
+      bevelThickness: 0.008
+    });
+    const halfMesh = new THREE.Mesh(cGeom, copperMat);
+    halfMesh.position.z = -0.12;
+    return halfMesh;
   };
-  armatureGroup.add(ring2);
 
-  // Stationary Carbon Brushes (Mounted outside rotating group)
-  const brushGeom = new THREE.BoxGeometry(0.14, 0.2, 0.24);
-  const brushMat = getMaterial(0x1e293b, { roughness: 0.85, metalness: 0.2 });
-  const brush1 = new THREE.Mesh(brushGeom, brushMat);
-  brush1.position.set(-0.27, 0, 1.05);
-  group.add(brush1);
+  const leftCommHalf = createCommutatorHalf(true);
+  leftCommHalf.position.x = -explode * 0.18;
+  commGroup.add(leftCommHalf);
 
-  const brush2 = new THREE.Mesh(brushGeom, brushMat);
-  brush2.position.set(0.27, 0, 1.05);
-  brush2.userData.partInfo = {
-    name: 'Carbon Contact Brushes (X & Y)',
-    category: 'Electrical Feed',
-    function: 'Graphite blocks conducting DC current into rotating split-rings with minimal wear.',
+  const rightCommHalf = createCommutatorHalf(false);
+  rightCommHalf.position.x = explode * 0.18;
+  commGroup.add(rightCommHalf);
+
+  armatureGroup.add(commGroup);
+
+  // ============================================================================
+  // 5. STATIONARY DARK-GREY CARBON BRUSHES (LEFT & RIGHT)
+  // ============================================================================
+  const brushesGroup = new THREE.Group();
+  brushesGroup.position.set(0, 0.02, 0.82 + explode * 0.25);
+  brushesGroup.userData.partInfo = {
+    name: 'Carbon Contact Brushes',
+    category: 'Sliding Electrical Contacts',
+    function: 'Stationary graphite blocks pressed against the rotating split-ring commutator to supply current from the battery.',
+    fact: 'Graphite is self-lubricating and heat-resistant, maintaining low-friction sliding contact.',
     pinId: 'carbon_brushes'
   };
-  group.add(brush2);
 
-  // External DC Battery Leads
-  const lead1 = new THREE.Mesh(
-    new THREE.TubeGeometry(new THREE.LineCurve3(new THREE.Vector3(-0.27, 0, 1.05), new THREE.Vector3(-0.8, -0.7, 1.05)), 8, 0.03, 6, false),
-    getMaterial(0xef4444, { emissive: 0xdc2626, emissiveIntensity: 0.4 })
-  );
-  group.add(lead1);
+  const brushMat = getMaterial(0x57534e, {
+    ...opts,
+    roughness: 0.75,
+    metalness: 0.2,
+    emissive: 0x292524,
+    emissiveIntensity: 0.2
+  });
+  const brushGeom = new THREE.BoxGeometry(0.24, 0.14, 0.22);
 
-  const lead2 = new THREE.Mesh(
-    new THREE.TubeGeometry(new THREE.LineCurve3(new THREE.Vector3(0.27, 0, 1.05), new THREE.Vector3(0.8, -0.7, 1.05)), 8, 0.03, 6, false),
-    getMaterial(0x0284c7, { emissive: 0x0369a1, emissiveIntensity: 0.4 })
-  );
-  group.add(lead2);
+  const leftBrush = new THREE.Mesh(brushGeom, brushMat);
+  leftBrush.position.set(-0.37 - explode * 0.3, 0, 0);
+  brushesGroup.add(leftBrush);
+
+  const rightBrush = new THREE.Mesh(brushGeom, brushMat);
+  rightBrush.position.set(0.37 + explode * 0.3, 0, 0);
+  brushesGroup.add(rightBrush);
+
+  group.add(brushesGroup);
+
+  // ============================================================================
+  // 6. EXTERNAL CIRCUIT LOOP, CURRENT (I) ARROWS & BOTTOM CYLINDRICAL BATTERY (+ / -)
+  // ============================================================================
+  const circuitGroup = new THREE.Group();
+  circuitGroup.position.set(0, -explode * 0.35, explode * 0.35);
+  circuitGroup.userData.partInfo = {
+    name: 'DC Battery (+ / -) & External Conducting Circuit (Current I)',
+    category: 'DC Power Source',
+    function: 'Drives conventional electric current I from the positive (+) battery terminal into the left brush, through the armature, and back via the right brush to the negative (-) terminal.',
+    fact: 'Reversing the battery polarity reverses the direction of motor rotation.',
+    pinId: 'rotation_shaft'
+  };
+
+  const wireMat = getMaterial(0x4b5563, { ...opts, roughness: 0.5, metalness: 0.3 });
+
+  // Left wire: from positive (+) battery terminal to Left Brush
+  const leftWireCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.38, -0.78, 1.32),
+    new THREE.Vector3(-0.88, -0.78, 1.32),
+    new THREE.Vector3(-0.92, -0.68, 1.25),
+    new THREE.Vector3(-0.68, 0.02, 0.82),
+    new THREE.Vector3(-0.48, 0.02, 0.82)
+  ]);
+  circuitGroup.add(new THREE.Mesh(new THREE.TubeGeometry(leftWireCurve, 32, 0.024, 10, false), wireMat));
+
+  // Right wire: from Right Brush to negative (-) battery terminal
+  const rightWireCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.48, 0.02, 0.82),
+    new THREE.Vector3(0.68, 0.02, 0.82),
+    new THREE.Vector3(0.92, -0.68, 1.25),
+    new THREE.Vector3(0.88, -0.78, 1.32),
+    new THREE.Vector3(0.38, -0.78, 1.32)
+  ]);
+  circuitGroup.add(new THREE.Mesh(new THREE.TubeGeometry(rightWireCurve, 32, 0.024, 10, false), wireMat));
+
+  // Yellow Current (I) Arrows on Left & Right External Wires
+  const leftWireArrow = new THREE.Mesh(new THREE.ConeGeometry(0.048, 0.12, 12), yellowArrowMat);
+  leftWireArrow.position.set(-0.77, -0.28, 1.01);
+  leftWireArrow.rotation.z = -0.32;
+  leftWireArrow.rotation.x = -0.45;
+  circuitGroup.add(leftWireArrow);
+
+  const rightWireArrow = new THREE.Mesh(new THREE.ConeGeometry(0.048, 0.12, 12), yellowArrowMat);
+  rightWireArrow.position.set(0.82, -0.42, 1.09);
+  rightWireArrow.rotation.z = -2.82;
+  rightWireArrow.rotation.x = 0.45;
+  circuitGroup.add(rightWireArrow);
+
+  if (!opts.wireframe) {
+    const currLabel = createDiagramLabelPlane(
+      [{ text: 'Current  I', font: 'bold 44px Inter, sans-serif', color: '#facc15', y: 64 }],
+      0.46,
+      0.22,
+      256,
+      128
+    );
+    currLabel.position.set(-1.18, -0.34, 1.05);
+    circuitGroup.add(currLabel);
+  }
+
+  // Horizontal Cylindrical Battery at bottom front center (0, -0.78, 1.32)
+  const batteryGroup = new THREE.Group();
+  batteryGroup.position.set(0, -0.78, 1.32);
+
+  // Positive Left Third (Light metallic grey cylinder)
+  const posCylGeom = new THREE.CylinderGeometry(0.14, 0.14, 0.24, 24);
+  posCylGeom.rotateZ(Math.PI / 2);
+  const posCylMat = getMaterial(0x9ca3af, { ...opts, metalness: 0.5, roughness: 0.3 });
+  const posCyl = new THREE.Mesh(posCylGeom, posCylMat);
+  posCyl.position.x = -0.22;
+  batteryGroup.add(posCyl);
+
+  // Dark Negative Right Two-Thirds (Charcoal cylinder)
+  const negCylGeom = new THREE.CylinderGeometry(0.14, 0.14, 0.44, 24);
+  negCylGeom.rotateZ(Math.PI / 2);
+  const negCylMat = getMaterial(0x4b5563, { ...opts, metalness: 0.4, roughness: 0.4 });
+  const negCyl = new THREE.Mesh(negCylGeom, negCylMat);
+  negCyl.position.x = 0.12;
+  batteryGroup.add(negCyl);
+
+  // Positive & Negative End Caps / Nub Terminals
+  const terminalMat = getMaterial(0xcbd5e1, { ...opts, metalness: 0.7, roughness: 0.2 });
+  const posNubGeom = new THREE.CylinderGeometry(0.065, 0.065, 0.06, 16);
+  posNubGeom.rotateZ(Math.PI / 2);
+  const posNub = new THREE.Mesh(posNubGeom, terminalMat);
+  posNub.position.x = -0.36;
+  batteryGroup.add(posNub);
+
+  const negCap = new THREE.Mesh(posNubGeom, terminalMat);
+  negCap.position.x = 0.36;
+  batteryGroup.add(negCap);
+
+  // "+  -" Symbols on the front of the Battery
+  if (!opts.wireframe) {
+    const batSymbols = createDiagramLabelPlane(
+      [{ text: '+         -', font: 'bold 72px Inter, sans-serif', color: '#ffffff', y: 64 }],
+      0.52,
+      0.22,
+      256,
+      128,
+      true
+    );
+    batSymbols.position.set(0, 0, 0.148);
+    batteryGroup.add(batSymbols);
+  }
+
+  circuitGroup.add(batteryGroup);
+  group.add(circuitGroup);
 }
 
 // 12. PRISM DISPERSION
@@ -2540,11 +3654,13 @@ function buildElectrolysisModel(group: THREE.Group, opts: ModelOpts) {
 
 // 14. MITOCHONDRIA
 function buildMitochondriaModel(group: THREE.Group, opts: ModelOpts) {
-  // Outer Membrane (Smooth capsule)
+  const explode = opts.explodeFactor * 0.75;
+  // Outer Membrane (Smooth capsule lifting upward in cross-section)
   const outerGeom = new THREE.CapsuleGeometry(0.9, 1.8, 16, 24);
-  const outerMat = getMaterial(0xd97706, { ...opts, transparent: true, opacity: 0.45, roughness: 0.3 });
+  const outerMat = getMaterial(0xd97706, { ...opts, transparent: true, opacity: Math.max(0.2, 0.45 - explode * 0.2), roughness: 0.3 });
   const outer = new THREE.Mesh(outerGeom, outerMat);
   outer.rotation.z = Math.PI / 2;
+  outer.position.set(0, explode * 0.65, -explode * 0.35);
   outer.userData.partInfo = {
     name: 'Outer Mitochondrial Membrane',
     category: 'Porin Envelope',
@@ -2559,7 +3675,7 @@ function buildMitochondriaModel(group: THREE.Group, opts: ModelOpts) {
     const foldGeom = new THREE.TorusGeometry(0.65, 0.08, 8, 24, Math.PI * 0.8);
     const foldMat = getMaterial(0xf59e0b, { emissive: 0xd97706, emissiveIntensity: 0.6 });
     const fold = new THREE.Mesh(foldGeom, foldMat);
-    fold.position.set(c * 0.22, 0, 0);
+    fold.position.set(c * (0.22 + explode * 0.08), 0, 0);
     fold.rotation.y = Math.PI / 2;
     cristaeGroup.add(fold);
   }
@@ -2576,7 +3692,7 @@ function buildMitochondriaModel(group: THREE.Group, opts: ModelOpts) {
     const oxyGeom = new THREE.SphereGeometry(0.05, 8, 8);
     const oxyMat = getMaterial(0x22c55e, { emissive: 0x16a34a, emissiveIntensity: 0.8 });
     const oxy = new THREE.Mesh(oxyGeom, oxyMat);
-    oxy.position.set((p - 5.5) * 0.16, 0.4, (Math.random() - 0.5) * 0.3);
+    oxy.position.set((p - 5.5) * (0.16 + explode * 0.06), 0.4 + explode * 0.3, (Math.random() - 0.5) * 0.3);
     group.add(oxy);
   }
 }
@@ -2686,8 +3802,9 @@ function buildDNAModel(group: THREE.Group, opts: ModelOpts) {
 
   const tube1 = new THREE.Mesh(
     new THREE.TubeGeometry(new THREE.CatmullRomCurve3(strand1), 64, 0.08, 8, false),
-    getMaterial(0x6366f1, { emissive: 0x4f46e5, emissiveIntensity: 0.4 })
+    getMaterial(0x6366f1, { ...opts, emissive: 0x4f46e5, emissiveIntensity: 0.4 })
   );
+  tube1.position.x = -opts.explodeFactor * 0.45;
   tube1.userData.partInfo = {
     name: 'Sugar-Phosphate Backbone (5′ to 3′)',
     category: 'Antiparallel Strand',
@@ -2698,8 +3815,9 @@ function buildDNAModel(group: THREE.Group, opts: ModelOpts) {
 
   const tube2 = new THREE.Mesh(
     new THREE.TubeGeometry(new THREE.CatmullRomCurve3(strand2), 64, 0.08, 8, false),
-    getMaterial(0xa855f7, { emissive: 0x9333ea, emissiveIntensity: 0.4 })
+    getMaterial(0xa855f7, { ...opts, emissive: 0x9333ea, emissiveIntensity: 0.4 })
   );
+  tube2.position.x = opts.explodeFactor * 0.45;
   tube2.userData.partInfo = {
     name: 'Complementary Strand (3′ to 5′)',
     category: 'Antiparallel Strand',
@@ -2711,12 +3829,14 @@ function buildDNAModel(group: THREE.Group, opts: ModelOpts) {
 
 // 17. ANTIBODY MOLECULE (H2L2)
 function buildAntibodyModel(group: THREE.Group, opts: ModelOpts) {
+  const explode = opts.explodeFactor * 0.65;
   // Heavy Chains (Long central Y-shape)
   const leftHeavy = [new THREE.Vector3(-1.1, 1.2, 0), new THREE.Vector3(-0.25, 0.2, 0), new THREE.Vector3(-0.25, -1.2, 0)];
   const lhMesh = new THREE.Mesh(
     new THREE.TubeGeometry(new THREE.CatmullRomCurve3(leftHeavy), 24, 0.09, 8, false),
     getMaterial(0x8b5cf6, { ...opts, emissive: 0x7c3aed, emissiveIntensity: 0.4 })
   );
+  lhMesh.position.set(-explode * 0.3, 0, 0);
   lhMesh.userData.partInfo = {
     name: 'Heavy Chains (H Chains, ~50 kDa)',
     category: 'Immunoglobulin Backbone',
@@ -2730,6 +3850,7 @@ function buildAntibodyModel(group: THREE.Group, opts: ModelOpts) {
     new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rightHeavy), 24, 0.09, 8, false),
     getMaterial(0x8b5cf6, { ...opts, emissive: 0x7c3aed, emissiveIntensity: 0.4 })
   );
+  rhMesh.position.set(explode * 0.3, 0, 0);
   group.add(rhMesh);
 
   // Light Chains (Shorter outer branches)
@@ -2738,6 +3859,7 @@ function buildAntibodyModel(group: THREE.Group, opts: ModelOpts) {
     new THREE.TubeGeometry(new THREE.CatmullRomCurve3(leftLight), 16, 0.075, 8, false),
     getMaterial(0x06b6d4, { ...opts, emissive: 0x0891b2, emissiveIntensity: 0.4 })
   );
+  llMesh.position.set(-explode * 0.7, explode * 0.35, explode * 0.2);
   llMesh.userData.partInfo = {
     name: 'Light Chains (L Chains, ~25 kDa)',
     category: 'Outer Arm Segment',
@@ -2751,6 +3873,7 @@ function buildAntibodyModel(group: THREE.Group, opts: ModelOpts) {
     new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rightLight), 16, 0.075, 8, false),
     getMaterial(0x06b6d4, { ...opts, emissive: 0x0891b2, emissiveIntensity: 0.4 })
   );
+  rlMesh.position.set(explode * 0.7, explode * 0.35, explode * 0.2);
   group.add(rlMesh);
 
   // Disulfide (-S-S-) bridges (Golden spheres)
@@ -2965,7 +4088,8 @@ function updateNCERTModelAnimation(renderType: string, group: THREE.Group, time:
   if (renderType === 'ncert_motor') {
     const armature = group.getObjectByName('rotating_motor_armature');
     if (armature) {
-      armature.rotation.z = time * 2.8;
+      // Gentle clockwise torque rocking oscillation so the armature loop, F arrows, and commutator gap stay clear and legible
+      armature.rotation.z = -0.12 * Math.sin(time * 2.4);
     }
   } else if (renderType === 'ncert_heart' || renderType === 'heart') {
     const heart = group.getObjectByName('pulsing_heart');
@@ -2993,6 +4117,14 @@ function updateNCERTModelAnimation(renderType: string, group: THREE.Group, time:
     if (bulb) {
       const glow = 0.85 + 0.15 * Math.sin(time * 6);
       bulb.scale.set(glow, glow, glow);
+    }
+  } else if (renderType === 'ncert_flame') {
+    const flame = group.getObjectByName('flickering_flame');
+    if (flame) {
+      const stretchY = 1 + 0.028 * Math.sin(time * 6.5) + 0.012 * Math.cos(time * 13.0);
+      const breatheX = 1 - 0.014 * Math.sin(time * 6.5);
+      flame.scale.set(breatheX, stretchY, breatheX);
+      flame.rotation.z = 0.018 * Math.sin(time * 4.2);
     }
   } else if (renderType === 'ncert_neuron') {
     const axon = group.getObjectByName('pulsing_axon');

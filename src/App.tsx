@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Header } from './components/Header';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Header, WebsiteProgressSummary, AppSectionId } from './components/Header';
 import { VisualLearning } from './components/VisualLearning/VisualLearning';
 import { Model3DViewer } from './components/Model3DViewer';
 import { AdvancedLab } from './components/AdvancedLab';
@@ -7,21 +7,62 @@ import { ChemistryLab } from './components/ChemistryLab';
 import { PhysicsSimulations } from './components/PhysicsSimulations';
 import { AtomicFoundation } from './components/AtomicFoundation/AtomicFoundation';
 import { NotesSection } from './components/NotesSection';
+import { StudyBuddy } from './components/StudyBuddy/StudyBuddy';
 import { LabGuideModal } from './components/LabGuideModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GradeLevel, NoteItem } from './types';
 import { DEFAULT_NOTES } from './data/defaultNotes';
+import { NCERT_DIAGRAMS } from './data/ncertDiagramsData';
 import { CheckCircle2, ArrowRight } from 'lucide-react';
 
 const LOCAL_STORAGE_NOTES_KEY = 'learnsphere_student_notes_v1';
 const LEGACY_STORAGE_NOTES_KEY = 'omnilearn_student_notes_v1';
+const VISITED_SECTIONS_STORAGE_KEY = 'learnsphere_visited_sections_v1';
 
 export default function App() {
-  const [activeSection, setActiveSection] = useState<
-    'visual_learning' | 'learning' | 'atomic_foundation' | 'advanced_lab' | 'chemistry' | 'physics' | 'notes'
-  >('visual_learning');
+  const [activeSection, setActiveSection] = useState<AppSectionId>('learning');
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel | 'all'>('all');
   const [guideOpen, setGuideOpen] = useState<boolean>(false);
+
+  // Track visited sections for website progress bar
+  const [visitedSections, setVisitedSections] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(VISITED_SECTIONS_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return ['learning'];
+  });
+
+  useEffect(() => {
+    setVisitedSections((prev) => {
+      const next = prev.includes(activeSection) ? prev : [...prev, activeSection];
+      try {
+        localStorage.setItem(VISITED_SECTIONS_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [activeSection]);
+
+  const [diagramsExplored, setDiagramsExplored] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('learnsphere_explored_diagrams_v1');
+      if (saved) return JSON.parse(saved).length;
+    } catch {}
+    return 1;
+  });
+
+  const [quizzesMastered, setQuizzesMastered] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('learnsphere_mastered_quizzes_v1');
+      if (saved) return JSON.parse(saved).length;
+    } catch {}
+    return 0;
+  });
+
+  const handleVisualProgressChange = useCallback((exploredCount: number, masteredCount: number) => {
+    setDiagramsExplored(exploredCount);
+    setQuizzesMastered(masteredCount);
+  }, []);
 
   // Notes state with localStorage persistence
   const [notes, setNotes] = useState<NoteItem[]>(() => {
@@ -94,6 +135,28 @@ export default function App() {
     });
   };
 
+  const totalDiagrams = NCERT_DIAGRAMS.length;
+  const totalSections = 8;
+  const overallPercent = Math.min(
+    100,
+    Math.round(
+      (diagramsExplored / totalDiagrams) * 45 +
+        (quizzesMastered / totalDiagrams) * 25 +
+        (visitedSections.length / totalSections) * 20 +
+        Math.min(1, notes.length / 5) * 10
+    )
+  );
+
+  const progressSummary: WebsiteProgressSummary = {
+    overallPercent,
+    diagramsExplored,
+    totalDiagrams,
+    quizzesMastered,
+    sectionsVisited: visitedSections.length,
+    totalSections,
+    notesCount: notes.length
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
       {/* Top Bar Header */}
@@ -103,6 +166,7 @@ export default function App() {
         selectedGrade={selectedGrade}
         setSelectedGrade={setSelectedGrade}
         onOpenGuide={() => setGuideOpen(true)}
+        progress={progressSummary}
       />
 
       {/* Main Container */}
@@ -122,12 +186,17 @@ export default function App() {
               ? 'Chemistry Lab'
               : activeSection === 'physics'
               ? 'Physics Simulations'
+              : activeSection === 'study_buddy'
+              ? 'Ask Lumi — Study Buddy'
               : 'Notes & Study Materials'
           }`}
           fallbackMessage="An unexpected error occurred while rendering this educational module. You can reset this section or refresh the page."
         >
           {activeSection === 'visual_learning' && (
-            <VisualLearning onAddNote={handleAddNote} />
+            <VisualLearning
+              onAddNote={handleAddNote}
+              onProgressChange={handleVisualProgressChange}
+            />
           )}
 
           {activeSection === 'learning' && (
@@ -160,6 +229,10 @@ export default function App() {
               onDeleteNote={handleDeleteNote}
               onImportNotes={handleImportNotes}
             />
+          )}
+
+          {activeSection === 'study_buddy' && (
+            <StudyBuddy onAddNote={handleAddNote} />
           )}
         </ErrorBoundary>
       </main>

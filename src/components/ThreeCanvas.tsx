@@ -60,6 +60,13 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
   const mouseRef = useRef(new THREE.Vector2());
   const timeRef = useRef(0);
 
+  const autoRotateRef = useRef(autoRotate);
+  autoRotateRef.current = autoRotate;
+  const renderTypeRef = useRef(renderType);
+  renderTypeRef.current = renderType;
+  const speedMultiplierRef = useRef(speedMultiplier);
+  speedMultiplierRef.current = speedMultiplier;
+
   // Initialize Scene, Camera, Renderer, Lights & Holographic Stage
   useEffect(() => {
     const mount = canvasMountRef.current;
@@ -238,15 +245,15 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       const now = performance.now();
       const delta = (now - lastTime) / 1000;
       lastTime = now;
-      timeRef.current += delta * speedMultiplier;
+      timeRef.current += delta * speedMultiplierRef.current;
 
       // Auto rotation of root model
-      if (autoRotate && rootGroupRef.current && !isDraggingRef.current) {
+      if (autoRotateRef.current && rootGroupRef.current && !isDraggingRef.current) {
         rootGroupRef.current.rotation.y += 0.005;
       }
 
-      // Rotate holographic stage rings slowly
-      if (stageGroupRef.current) {
+      // Rotate holographic stage rings slowly when autoRotate is active
+      if (autoRotateRef.current && stageGroupRef.current) {
         stageGroupRef.current.rotation.y += 0.002;
       }
 
@@ -257,7 +264,7 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
 
       // Model-specific continuous dynamic animations
       try {
-        updateModelAnimation(renderType, modelGroup, timeRef.current);
+        updateModelAnimation(renderTypeRef.current, modelGroup, timeRef.current);
       } catch (e) {
         console.warn('updateModelAnimation error:', e);
       }
@@ -519,23 +526,32 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     }
   };
 
-  const onWheel = (e: React.WheelEvent) => {
-    try {
-      if (!cameraRef.current) return;
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handleNativeWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const zoomDelta = e.deltaY * 0.003;
-      if (Number.isFinite(zoomDelta)) {
-        cameraRef.current.position.z = Math.max(1.8, Math.min(8.5, cameraRef.current.position.z + zoomDelta));
+      e.stopPropagation();
+      try {
+        if (!cameraRef.current) return;
+        const zoomDelta = e.deltaY * 0.003;
+        if (Number.isFinite(zoomDelta)) {
+          cameraRef.current.position.z = Math.max(1.8, Math.min(8.5, cameraRef.current.position.z + zoomDelta));
+        }
+      } catch (err) {
+        console.warn('Wheel event error:', err);
       }
-    } catch (e) {
-      console.warn('Wheel event error:', e);
-    }
-  };
+    };
+    el.addEventListener('wheel', handleNativeWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleNativeWheel);
+    };
+  }, []);
 
   return (
     <div
       ref={containerRef}
-      className="w-full h-full relative cursor-grab active:cursor-grabbing select-none overflow-hidden touch-none"
+      className="w-full h-full relative cursor-grab active:cursor-grabbing select-none overflow-hidden touch-none overscroll-contain"
       style={{ minHeight: '440px' }}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
@@ -545,7 +561,6 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       onTouchMove={onTouchMove}
       onTouchEnd={handleDragEnd}
       onClick={handleClick}
-      onWheel={onWheel}
     >
       {/* Dedicated Three.js canvas mount element - decoupled from React virtual DOM */}
       <div ref={canvasMountRef} className="absolute inset-0 w-full h-full pointer-events-none" />

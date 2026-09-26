@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   NCERT_DIAGRAMS, 
   NCERTDiagramItem, 
@@ -23,8 +23,13 @@ import {
   ChevronRight, 
   FileText,
   Sliders,
-  Check
+  Check,
+  Trophy
 } from 'lucide-react';
+
+const EXPLORED_STORAGE_KEY = 'learnsphere_explored_diagrams_v1';
+const MASTERED_STORAGE_KEY = 'learnsphere_mastered_quizzes_v1';
+const INSPECTED_PINS_STORAGE_KEY = 'learnsphere_inspected_pins_v1';
 
 interface VisualLearningProps {
   onAddNote: (
@@ -34,9 +39,10 @@ interface VisualLearningProps {
     tags: string[],
     labRef: string
   ) => void;
+  onProgressChange?: (exploredCount: number, masteredCount: number) => void;
 }
 
-export const VisualLearning: React.FC<VisualLearningProps> = ({ onAddNote }) => {
+export const VisualLearning: React.FC<VisualLearningProps> = ({ onAddNote, onProgressChange }) => {
   const [selectedClass, setSelectedClass] = useState<NCERTClassGrade | 'all'>('all');
   const [selectedSubject, setSelectedSubject] = useState<NCERTSubject | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -55,9 +61,46 @@ export const VisualLearning: React.FC<VisualLearningProps> = ({ onAddNote }) => 
   // Study & Quiz Mode
   const [activeTab, setActiveTab] = useState<'inspector' | 'quiz' | 'exam_tips'>('inspector');
   const [quizScore, setQuizScore] = useState<number>(0);
+  const [quizSolvedPinIds, setQuizSolvedPinIds] = useState<string[]>([]);
   const [quizTargetPin, setQuizTargetPin] = useState<Pinpoint | null>(null);
   const [quizFeedback, setQuizFeedback] = useState<string | null>(null);
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
+
+  // Persistent Progress State
+  const [exploredDiagrams, setExploredDiagrams] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(EXPLORED_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return ['nephron_structure'];
+  });
+
+  const [masteredDiagrams, setMasteredDiagrams] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(MASTERED_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  const [inspectedPinsByDiagram, setInspectedPinsByDiagram] = useState<Record<string, string[]>>(() => {
+    try {
+      const saved = localStorage.getItem(INSPECTED_PINS_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(EXPLORED_STORAGE_KEY, JSON.stringify(exploredDiagrams));
+      localStorage.setItem(MASTERED_STORAGE_KEY, JSON.stringify(masteredDiagrams));
+      localStorage.setItem(INSPECTED_PINS_STORAGE_KEY, JSON.stringify(inspectedPinsByDiagram));
+    } catch {}
+    if (onProgressChange) {
+      onProgressChange(exploredDiagrams.length, masteredDiagrams.length);
+    }
+  }, [exploredDiagrams, masteredDiagrams, inspectedPinsByDiagram, onProgressChange]);
 
   // Filter diagrams
   const filteredDiagrams = useMemo(() => {
@@ -82,12 +125,44 @@ export const VisualLearning: React.FC<VisualLearningProps> = ({ onAddNote }) => 
     filteredDiagrams[0] ||
     NCERT_DIAGRAMS[0];
 
+  const visiblePinpoints = useMemo(
+    () =>
+      activeDiagram.pinpoints.filter(
+        (p) => p.minExplodeFactor === undefined || explodeFactor >= p.minExplodeFactor
+      ),
+    [activeDiagram.pinpoints, explodeFactor]
+  );
+
+  useEffect(() => {
+    if (
+      selectedPin &&
+      selectedPin.minExplodeFactor !== undefined &&
+      explodeFactor < selectedPin.minExplodeFactor
+    ) {
+      setSelectedPin(visiblePinpoints[0] || null);
+    }
+  }, [explodeFactor, selectedPin, visiblePinpoints]);
+
+  const markPinInspected = (diagId: string, pinId: string) => {
+    setInspectedPinsByDiagram((prev) => {
+      const existing = prev[diagId] || [];
+      if (existing.includes(pinId)) return prev;
+      return { ...prev, [diagId]: [...existing, pinId] };
+    });
+  };
+
   // When switching diagrams
   const handleSelectDiagram = (diag: NCERTDiagramItem) => {
     setActiveDiagramId(diag.id);
-    setSelectedPin(diag.pinpoints[0] || null);
+    const firstPin = diag.pinpoints[0] || null;
+    setSelectedPin(firstPin);
     setExplodeFactor(0);
     setQuizFeedback(null);
+    setQuizSolvedPinIds([]);
+    setExploredDiagrams((prev) => (prev.includes(diag.id) ? prev : [...prev, diag.id]));
+    if (firstPin) {
+      markPinInspected(diag.id, firstPin.id);
+    }
     if (diag.pinpoints.length > 0) {
       const randomTarget = diag.pinpoints[Math.floor(Math.random() * diag.pinpoints.length)];
       setQuizTargetPin(randomTarget);
@@ -97,27 +172,35 @@ export const VisualLearning: React.FC<VisualLearningProps> = ({ onAddNote }) => 
   // Pinpoint selection
   const handlePinSelect = (pin: Pinpoint) => {
     setSelectedPin(pin);
+    markPinInspected(activeDiagram.id, pin.id);
+    setExploredDiagrams((prev) => (prev.includes(activeDiagram.id) ? prev : [...prev, activeDiagram.id]));
 
     // If currently in quiz mode
     if (activeTab === 'quiz' && quizTargetPin) {
       if (pin.id === quizTargetPin.id) {
+        const nextSolved = quizSolvedPinIds.includes(pin.id)
+          ? quizSolvedPinIds
+          : [...quizSolvedPinIds, pin.id];
+        setQuizSolvedPinIds(nextSolved);
         setQuizScore((prev) => prev + 1);
-        setQuizFeedback(`Correct! You accurately identified "${pin.name}".`);
+        setQuizFeedback(`Correct! You accurately identified "${pin.name}" — ${pin.significance}`);
         try {
           confetti({ particleCount: 35, spread: 55, origin: { y: 0.7 } });
         } catch {}
 
         setTimeout(() => {
-          const nextTargets = activeDiagram.pinpoints.filter((p) => p.id !== pin.id);
-          if (nextTargets.length > 0) {
-            setQuizTargetPin(nextTargets[Math.floor(Math.random() * nextTargets.length)]);
+          const remainingTargets = activeDiagram.pinpoints.filter((p) => !nextSolved.includes(p.id));
+          if (remainingTargets.length > 0) {
+            setQuizTargetPin(remainingTargets[Math.floor(Math.random() * remainingTargets.length)]);
             setQuizFeedback(null);
           } else {
+            setQuizTargetPin(null);
             setQuizFeedback('Mastery achieved! You identified all parts in this diagram.');
+            setMasteredDiagrams((prev) => (prev.includes(activeDiagram.id) ? prev : [...prev, activeDiagram.id]));
           }
         }, 1400);
       } else {
-        setQuizFeedback(`Not quite: you selected "${pin.name}". Try finding "${quizTargetPin.name}".`);
+        setQuizFeedback(`Not quite: you selected "${pin.name}". Read what the target structure works for above and try again!`);
       }
     }
   };
@@ -126,12 +209,29 @@ export const VisualLearning: React.FC<VisualLearningProps> = ({ onAddNote }) => 
   const handleStartQuiz = () => {
     setActiveTab('quiz');
     setQuizScore(0);
+    setQuizSolvedPinIds([]);
     setQuizFeedback(null);
     if (activeDiagram.pinpoints.length > 0) {
       const initialTarget = activeDiagram.pinpoints[Math.floor(Math.random() * activeDiagram.pinpoints.length)];
       setQuizTargetPin(initialTarget);
     }
   };
+
+  const activeInspectedPins = inspectedPinsByDiagram[activeDiagram.id] || (selectedPin ? [selectedPin.id] : []);
+  const activeDiagramPinProgress = Math.min(
+    100,
+    Math.round((activeInspectedPins.length / Math.max(1, activeDiagram.pinpoints.length)) * 100)
+  );
+  const activeQuizProgress = Math.min(
+    100,
+    Math.round((quizSolvedPinIds.length / Math.max(1, activeDiagram.pinpoints.length)) * 100)
+  );
+  const curriculumProgressPercent = Math.min(
+    100,
+    Math.round(
+      ((exploredDiagrams.length * 0.6 + masteredDiagrams.length * 0.4) / Math.max(1, NCERT_DIAGRAMS.length)) * 100
+    )
+  );
 
   // Save to Notes
   const handleSaveToNotes = () => {
@@ -200,6 +300,41 @@ ${activeDiagram.examTips.map((e) => `- ${e}`).join('\n')}
             {savedSuccess ? <CheckCircle2 className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
             <span>{savedSuccess ? 'Saved to Study Notes!' : 'Save Diagram to Notes'}</span>
           </button>
+        </div>
+      </div>
+
+      {/* NCERT Curriculum Learning Progress Bar Banner */}
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+            <Trophy className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs sm:text-sm font-bold text-white">NCERT 3D Visual Learning Progress</h3>
+              <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                {curriculumProgressPercent}% Overall
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {exploredDiagrams.length} of {NCERT_DIAGRAMS.length} 3D Diagrams Explored · {masteredDiagrams.length} of {NCERT_DIAGRAMS.length} Labeling Quizzes Mastered
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 max-w-md w-full space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] font-mono text-slate-300">
+            <span>Curriculum Completion</span>
+            <span className="text-cyan-300 font-bold">
+              {exploredDiagrams.length}/{NCERT_DIAGRAMS.length} Models
+            </span>
+          </div>
+          <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800 p-0.5">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400 rounded-full transition-all duration-500"
+              style={{ width: `${curriculumProgressPercent}%` }}
+            />
+          </div>
         </div>
       </div>
 
@@ -373,10 +508,11 @@ ${activeDiagram.examTips.map((e) => `- ${e}`).join('\n')}
                 xray={xray}
                 explodeFactor={explodeFactor}
                 autoRotate={autoRotate}
-                pinpoints={activeDiagram.pinpoints}
+                pinpoints={visiblePinpoints}
                 selectedPinId={selectedPin?.id || null}
                 onSelectPin={handlePinSelect}
                 unitCellType={unitCellType}
+                quizMode={activeTab === 'quiz'}
               />
 
               {/* Top Overlay Badge */}
@@ -388,18 +524,42 @@ ${activeDiagram.examTips.map((e) => `- ${e}`).join('\n')}
               </div>
 
               {/* Explode / Section Slider (Bottom Left Overlay) */}
-              <div className="absolute bottom-3 left-3 right-3 sm:right-auto sm:w-72 bg-slate-900/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-700/80 shadow-xl flex items-center gap-3">
+              <div
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute bottom-3 left-3 right-3 sm:right-auto sm:w-80 z-20 bg-slate-900/95 backdrop-blur-md p-2.5 rounded-xl border border-slate-700/80 shadow-xl flex items-center gap-3"
+              >
                 <Sliders className="w-4 h-4 text-cyan-400 shrink-0" />
                 <div className="flex-1">
-                  <div className="flex justify-between text-[10px] text-slate-300 mb-1">
+                  <div className="flex items-center justify-between text-[10px] text-slate-300 mb-1.5">
                     <span className="font-semibold">Explode / Cross-Section</span>
-                    <span className="font-mono">{Math.round(explodeFactor * 100)}%</span>
+                    <div className="flex items-center gap-1.5">
+                      {[0, 0.5, 1].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setExplodeFactor(preset)}
+                          className={`px-1.5 py-0.5 rounded font-mono text-[9px] transition-colors cursor-pointer ${
+                            Math.abs(explodeFactor - preset) < 0.03
+                              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 font-bold'
+                              : 'bg-slate-800 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {Math.round(preset * 100)}%
+                        </button>
+                      ))}
+                      <span className="font-mono text-cyan-300 font-bold ml-0.5 w-8 text-right">
+                        {Math.round(explodeFactor * 100)}%
+                      </span>
+                    </div>
                   </div>
                   <input
                     type="range"
                     min="0"
                     max="1"
-                    step="0.05"
+                    step="0.01"
                     value={explodeFactor}
                     onChange={(e) => setExplodeFactor(parseFloat(e.target.value))}
                     className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
@@ -412,15 +572,15 @@ ${activeDiagram.examTips.map((e) => `- ${e}`).join('\n')}
             <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-800 text-xs">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setAutoRotate(!autoRotate)}
+                  onClick={() => setAutoRotate((prev) => !prev)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-medium transition-all cursor-pointer ${
                     autoRotate
                       ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
-                      : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-white'
+                      : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:text-white'
                   }`}
                 >
                   {autoRotate ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                  <span>Auto Orbit</span>
+                  <span>{autoRotate ? 'Pause Rotation' : 'Resume Rotation'}</span>
                 </button>
 
                 <button
@@ -558,18 +718,30 @@ ${activeDiagram.examTips.map((e) => `- ${e}`).join('\n')}
                   </div>
                 )}
 
-                {/* Interactive Pinpoints Grid */}
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                    Official Diagram Labels ({activeDiagram.pinpoints.length} parts)
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1 scrollbar-thin">
-                    {activeDiagram.pinpoints.map((pin) => {
+                {/* Interactive Pinpoints Grid + Inspection Progress Bar */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      Official Diagram Labels ({visiblePinpoints.length} parts)
+                    </span>
+                    <span className="text-[11px] font-mono text-cyan-300 font-semibold">
+                      {activeInspectedPins.filter((id) => visiblePinpoints.some((p) => p.id === id)).length}/{visiblePinpoints.length} Inspected ({activeDiagramPinProgress}%)
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full transition-all duration-500"
+                      style={{ width: `${activeDiagramPinProgress}%` }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1 scrollbar-thin pt-1">
+                    {visiblePinpoints.map((pin) => {
                       const isSelected = selectedPin?.id === pin.id;
+                      const isInspected = activeInspectedPins.includes(pin.id);
                       return (
                         <button
                           key={pin.id}
-                          onClick={() => setSelectedPin(pin)}
+                          onClick={() => handlePinSelect(pin)}
                           className={`w-full text-left p-2.5 rounded-xl border transition-all flex items-center justify-between text-xs cursor-pointer ${
                             isSelected
                               ? 'bg-cyan-500/20 border-cyan-400 text-white font-semibold'
@@ -577,7 +749,15 @@ ${activeDiagram.examTips.map((e) => `- ${e}`).join('\n')}
                           }`}
                         >
                           <div className="flex items-center gap-2 truncate">
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-cyan-400 animate-pulse' : 'bg-slate-600'}`} />
+                            <span
+                              className={`w-2 h-2 rounded-full shrink-0 ${
+                                isSelected
+                                  ? 'bg-cyan-400 animate-pulse'
+                                  : isInspected
+                                  ? 'bg-emerald-400'
+                                  : 'bg-slate-600'
+                              }`}
+                            />
                             <span className="truncate">{pin.name}</span>
                           </div>
                           <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-cyan-400' : 'text-slate-600'}`} />
@@ -592,20 +772,43 @@ ${activeDiagram.examTips.map((e) => `- ${e}`).join('\n')}
             {/* TAB 2: INTERACTIVE LABEL QUIZ */}
             {activeTab === 'quiz' && (
               <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-950/50 to-slate-950 border border-indigo-500/30 text-center space-y-2">
-                  <div className="flex items-center justify-center gap-2 text-indigo-400 font-mono text-xs">
-                    <Award className="w-4 h-4" />
-                    <span>3D Diagram Labeling Challenge</span>
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-950/50 to-slate-950 border border-indigo-500/30 text-center space-y-3">
+                  <div className="flex items-center justify-between text-indigo-300 font-mono text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-indigo-400" />
+                      <span>3D Labeling Challenge</span>
+                    </span>
+                    <span className="text-cyan-300 font-bold">
+                      {quizSolvedPinIds.length} / {activeDiagram.pinpoints.length} Solved ({activeQuizProgress}%)
+                    </span>
+                  </div>
+
+                  {/* Quiz Round Progress Bar */}
+                  <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-indigo-500/30">
+                    <div
+                      className="h-full bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400 rounded-full transition-all duration-500"
+                      style={{ width: `${activeQuizProgress}%` }}
+                    />
                   </div>
                   <h3 className="text-sm font-semibold text-slate-200">
-                    Locate and identify the requested anatomical structure in 3D:
+                    Read what this part works for and click the matching structure in 3D:
                   </h3>
                   {quizTargetPin ? (
-                    <div className="p-3 bg-indigo-500/20 border border-indigo-400/40 rounded-xl">
-                      <span className="text-xs text-indigo-200 font-medium">Find & Click on:</span>
-                      <h2 className="text-lg font-bold text-white tracking-wide mt-0.5">
-                        "{quizTargetPin.name}"
-                      </h2>
+                    <div className="p-3.5 bg-indigo-500/15 border border-indigo-400/40 rounded-xl text-left space-y-2">
+                      <span className="inline-block text-[11px] font-mono uppercase tracking-wider text-indigo-300 font-semibold">
+                        What it works for / Function:
+                      </span>
+                      <p className="text-sm font-semibold text-white leading-relaxed">
+                        • {quizTargetPin.significance}
+                      </p>
+                      <p className="text-xs text-indigo-100/90 leading-relaxed">
+                        • {quizTargetPin.description}
+                      </p>
+                      {quizTargetPin.formulaOrFact && (
+                        <p className="text-[11px] text-amber-200/90 font-mono pt-1.5 border-t border-indigo-400/20">
+                          NCERT Clue: {quizTargetPin.formulaOrFact}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="text-xs text-emerald-400 font-semibold">Quiz Round Complete!</div>
@@ -628,22 +831,8 @@ ${activeDiagram.examTips.map((e) => `- ${e}`).join('\n')}
                   </div>
                 )}
 
-                {/* Pinpoint alternative buttons for quick guessing */}
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                    Or select from the candidate labels:
-                  </span>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {activeDiagram.pinpoints.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => handlePinSelect(p)}
-                        className="p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-cyan-500/60 text-xs text-slate-300 hover:text-white transition-colors text-left truncate cursor-pointer"
-                      >
-                        {p.name}
-                      </button>
-                    ))}
-                  </div>
+                <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-center text-xs text-slate-400">
+                  Rotate the 3D model and click directly on the corresponding pinpoint or structure in the 3D viewport above to submit your answer.
                 </div>
               </div>
             )}

@@ -172,13 +172,14 @@ ${activeModel.keyConcepts.map((k) => `- ${k}`).join('\n')}
           {/* 3D Action Tools Overlay (Right Top) */}
           <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 bg-slate-950/80 backdrop-blur-md p-1.5 rounded-xl border border-slate-800">
             <button
-              onClick={() => setAutoRotate(!autoRotate)}
-              title={autoRotate ? 'Pause Rotation' : 'Auto Rotate'}
-              className={`p-2 rounded-lg text-xs transition-colors ${
-                autoRotate ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-400 hover:text-white'
+              onClick={() => setAutoRotate((prev) => !prev)}
+              title={autoRotate ? 'Pause Rotation' : 'Resume Rotation'}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                autoRotate ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'text-slate-300 hover:text-white bg-slate-900/80 border border-slate-700'
               }`}
             >
               {autoRotate ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{autoRotate ? 'Pause Rotation' : 'Resume Rotation'}</span>
             </button>
             <button
               onClick={() => setXray(!xray)}
