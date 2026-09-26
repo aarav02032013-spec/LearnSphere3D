@@ -103,7 +103,7 @@ Formatting guidelines:
       },
     ];
 
-    const modelsToTry = ['gemini-3-flash-preview', 'gemini-3.8-flash'];
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
     let replyText = '';
 
     for (const modelName of modelsToTry) {

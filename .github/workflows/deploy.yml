@@ -33,6 +33,9 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Build project
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          VITE_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           npm run build
           cp dist/index.html dist/404.html

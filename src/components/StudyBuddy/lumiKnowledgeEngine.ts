@@ -1,3 +1,4 @@
+import { GoogleGenAI } from '@google/genai';
 import { NCERT_DIAGRAMS } from '../../data/ncertDiagramsData';
 import { DEFAULT_NOTES } from '../../data/defaultNotes';
 import { ELEMENTS_DATA } from '../../data/elementsData';
@@ -934,14 +935,14 @@ export function cleanTexSymbols(tex: string, preserveNewlines = false): string {
 }
 
 /**
- * Calls a free, zero-API-key, CORS-enabled Generative AI endpoint directly from the browser.
- * This ensures that on static hosts like GitHub Pages (*.github.io), Lumi acts as a true
- * conversational AI tutor capable of deriving equations, solving custom problems, and explaining any concept!
+ * Calls Gemini's Free Flash AI Model directly via @google/genai when deployed to GitHub Pages
+ * (if GEMINI_API_KEY / VITE_GEMINI_API_KEY is embedded at build time) and falls back to
+ * zero-key cloud AI inference so Lumi is always fast and intelligent on static hosts.
  */
-async function fetchZeroKeyGenerativeAI(req: LumiLocalRequest): Promise<string | null> {
+export async function fetchClientGeminiFlashAnswer(req: LumiLocalRequest): Promise<string | null> {
   const modeInstructions: Record<string, string> = {
     explain:
-      'Mode: Explain Simply. Answer the exact question asked step-by-step using clear headings, everyday analogies, worked derivations/examples when relevant, and end with a line starting with "Lumi\'s Memory Trick: ".',
+      'Mode: Explain Simply. Break the concept down step-by-step using clear headings, everyday analogies, worked derivations/examples when relevant, and end with a line starting with "Lumi\'s Memory Trick: ".',
     solver:
       'Mode: Step-by-Step Solver. State the given quantities/definitions, write the exact formula, show every algebraic or numerical step clearly with units, and highlight the final answer.',
     exam:
@@ -954,9 +955,51 @@ async function fetchZeroKeyGenerativeAI(req: LumiLocalRequest): Promise<string |
 ${modeInstructions[req.studyMode] || modeInstructions.explain}
 IMPORTANT FORMATTING RULES:
 - Directly answer the student's exact prompt (if they ask to derive an equation, show the full step-by-step derivation; if they ask "why" or "how", explain the mechanism clearly).
-- Do NOT use LaTeX delimiters like \\( \\) or \\[ \\] or $$. Instead, write formulas inside single backticks using clean Unicode symbols, e.g. \`v² - u² = 2as\`, \`s = ut + ½at²\`, \`F = m · a\`, \`pH = -log[H+]\`.
+- Do NOT use raw LaTeX delimiters like \\( \\), \\[ \\], or $$. Instead, write formulas inside single backticks using clean Unicode symbols, e.g. \`v² - u² = 2as\`, \`s = (v² - u²) / (2a)\`, \`s = ut + ½at²\`, \`F = m · a\`, \`pH = -log[H+]\`.
 - Use ## and ### headings and bullet points (- ) so students can revise easily.`;
 
+  // 1. Try Official @google/genai SDK with Gemini Free Flash Models if GEMINI_API_KEY was provided at build time
+  const apiKey =
+    (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) || '';
+
+  if (apiKey && apiKey.trim().length > 10) {
+    try {
+      const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
+      const contents = [
+        ...req.history.slice(-8).map((turn) => ({
+          role: turn.role,
+          parts: [{ text: turn.text }]
+        })),
+        {
+          role: 'user' as const,
+          parts: [{ text: req.message.trim() }]
+        }
+      ];
+
+      const freeGeminiModels = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+      for (const modelName of freeGeminiModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents,
+            config: {
+              systemInstruction: systemPrompt,
+              temperature: 0.65
+            }
+          });
+          if (response.text && response.text.trim().length > 15) {
+            return cleanAIMathFormatting(response.text.trim());
+          }
+        } catch {
+          // Try next free Gemini Flash model
+        }
+      }
+    } catch {
+      // Fall through to zero-key cloud AI relay
+    }
+  }
+
+  // 2. Zero-Key Cloud Gemini/AI Relay for GitHub Pages when no API key secret is configured
   const messages = [
     { role: 'system', content: systemPrompt },
     ...req.history.slice(-6).map((h) => ({
@@ -966,40 +1009,42 @@ IMPORTANT FORMATTING RULES:
     { role: 'user', content: req.message }
   ];
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+  for (const relayModel of ['gemini', 'openai']) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-    const response = await fetch('https://text.pollinations.ai/openai', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'openai',
-        messages,
-        temperature: 0.6
-      }),
-      signal: controller.signal
-    });
+      const response = await fetch('https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({
+          model: relayModel,
+          messages,
+          temperature: 0.6
+        }),
+        signal: controller.signal
+      });
 
-    clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
 
-    if (!response.ok) return null;
-    const rawText = await response.text();
-    const trimmed = rawText.trim();
-    if (!trimmed || trimmed.startsWith('<')) return null;
+      if (!response.ok) continue;
+      const rawText = await response.text();
+      const trimmed = rawText.trim();
+      if (!trimmed || trimmed.startsWith('<')) continue;
 
-    if (trimmed.startsWith('{')) {
-      const data = JSON.parse(trimmed);
-      const aiContent = data?.choices?.[0]?.message?.content;
-      if (typeof aiContent === 'string' && aiContent.trim().length > 20) {
-        return cleanAIMathFormatting(aiContent);
+      if (trimmed.startsWith('{')) {
+        const data = JSON.parse(trimmed);
+        const aiContent = data?.choices?.[0]?.message?.content;
+        if (typeof aiContent === 'string' && aiContent.trim().length > 20) {
+          return cleanAIMathFormatting(aiContent);
+        }
       }
+    } catch {
+      // Try next relay model or fall through
     }
-  } catch {
-    // Fall through if offline or blocked
   }
 
   return null;
@@ -1009,8 +1054,8 @@ IMPORTANT FORMATTING RULES:
  * Live AI + Academic Knowledge Engine for Static Hosts (GitHub Pages) & Server Fallback.
  */
 export async function fetchLiveAcademicAnswer(req: LumiLocalRequest): Promise<string | null> {
-  // 1. Call our Zero-Key CORS Generative AI Tutor FIRST so ANY question, derivation, numerical, or explanation is answered specifically and conversationally!
-  const generativeAIReply = await fetchZeroKeyGenerativeAI(req);
+  // 1. Call Gemini Free Flash Model (@google/genai) + Zero-Key Cloud AI Relay FIRST
+  const generativeAIReply = await fetchClientGeminiFlashAnswer(req);
   if (generativeAIReply) return generativeAIReply;
 
   // 2. Offline / Fallback: Check our curated NCERT/STEM library (derivations, atomicity, 118 elements, numericals)

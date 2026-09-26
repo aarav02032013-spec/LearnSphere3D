@@ -10,6 +10,11 @@ export default defineConfig(() => {
 
   return {
     base,
+    define: {
+      'process.env.GEMINI_API_KEY': JSON.stringify(
+        process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || ''
+      ),
+    },
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
