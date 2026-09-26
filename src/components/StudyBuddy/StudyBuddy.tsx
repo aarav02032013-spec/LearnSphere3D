@@ -17,7 +17,7 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { NoteItem } from '../../types';
-import { generateLocalLumiResponse } from './lumiKnowledgeEngine';
+import { generateLocalLumiResponse, fetchLiveAcademicAnswer } from './lumiKnowledgeEngine';
 
 export interface StudyChatMessage {
   id: string;
@@ -425,7 +425,16 @@ export const StudyBuddy: React.FC<StudyBuddyProps> = ({ onAddNote }) => {
       }
 
       if (!replyText) {
-        await new Promise((resolve) => setTimeout(resolve, 320));
+        replyText = await fetchLiveAcademicAnswer({
+          message: trimmed,
+          history: historyPayload,
+          subject,
+          gradeBand,
+          studyMode: activeMode
+        });
+      }
+
+      if (!replyText) {
         replyText = generateLocalLumiResponse({
           message: trimmed,
           history: historyPayload,

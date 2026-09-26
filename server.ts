@@ -3,7 +3,10 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
-import { generateLocalLumiResponse } from './src/components/StudyBuddy/lumiKnowledgeEngine';
+import {
+  generateLocalLumiResponse,
+  fetchLiveAcademicAnswer,
+} from './src/components/StudyBuddy/lumiKnowledgeEngine';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -113,13 +116,15 @@ Formatting guidelines:
       gradeBand?: string;
       studyMode?: 'explain' | 'solver' | 'exam' | 'quiz';
     };
-    const fallbackReply = generateLocalLumiResponse({
+    const reqPayload = {
       message: String(message),
       history: Array.isArray(history) ? history : [],
       subject,
       gradeBand,
       studyMode,
-    });
+    };
+    const liveAcademicReply = await fetchLiveAcademicAnswer(reqPayload);
+    const fallbackReply = liveAcademicReply || generateLocalLumiResponse(reqPayload);
     res.json({ reply: fallbackReply });
   }
 });
