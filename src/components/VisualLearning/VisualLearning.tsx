@@ -7,6 +7,8 @@ import {
 } from '../../data/ncertDiagramsData';
 import { Pinpoint } from '../../types';
 import { NCERT3DCanvas } from './NCERT3DCanvas';
+import { MicroscopyLab } from './MicroscopyLab';
+import { MICROSCOPY_SLIDES } from '../../data/microscopyData';
 import confetti from 'canvas-confetti';
 import { 
   BookOpen, 
@@ -43,6 +45,7 @@ interface VisualLearningProps {
 }
 
 export const VisualLearning: React.FC<VisualLearningProps> = ({ onAddNote, onProgressChange }) => {
+  const [visualSectionTab, setVisualSectionTab] = useState<'diagrams' | 'microscopy'>('diagrams');
   const [selectedClass, setSelectedClass] = useState<NCERTClassGrade | 'all'>('all');
   const [selectedSubject, setSelectedSubject] = useState<NCERTSubject | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -287,22 +290,55 @@ ${activeDiagram.examTips.map((e) => `- ${e}`).join('\n')}
           </p>
         </div>
 
-        {/* Action button */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSaveToNotes}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shadow-md ${
-              savedSuccess
-                ? 'bg-emerald-500 text-white'
-                : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white'
-            }`}
-          >
-            {savedSuccess ? <CheckCircle2 className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-            <span>{savedSuccess ? 'Saved to Study Notes!' : 'Save Diagram to Notes'}</span>
-          </button>
+        {/* Sub-Tab Switcher: 3D NCERT Diagrams vs. Microscopy + Action Button */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setVisualSectionTab('diagrams')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                visualSectionTab === 'diagrams'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>3D NCERT Diagrams ({NCERT_DIAGRAMS.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setVisualSectionTab('microscopy')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                visualSectionTab === 'microscopy'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Microscopy ({MICROSCOPY_SLIDES.length} Views)</span>
+            </button>
+          </div>
+
+          {visualSectionTab === 'diagrams' && (
+            <button
+              onClick={handleSaveToNotes}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shadow-md cursor-pointer ${
+                savedSuccess
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white'
+              }`}
+            >
+              {savedSuccess ? <CheckCircle2 className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+              <span>{savedSuccess ? 'Saved to Study Notes!' : 'Save Diagram to Notes'}</span>
+            </button>
+          )}
         </div>
       </div>
 
+      {visualSectionTab === 'microscopy' ? (
+        <MicroscopyLab onAddNote={onAddNote} />
+      ) : (
+        <>
       {/* NCERT Curriculum Learning Progress Bar Banner */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -882,6 +918,8 @@ ${activeDiagram.examTips.map((e) => `- ${e}`).join('\n')}
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };
