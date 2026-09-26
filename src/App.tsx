@@ -187,7 +187,7 @@ export default function App() {
               : activeSection === 'physics'
               ? 'Physics Simulations'
               : activeSection === 'study_buddy'
-              ? 'Ask Lumi — Study Buddy'
+              ? 'Ask Lumi (Beta) — Study Buddy'
               : 'Notes & Study Materials'
           }`}
           fallbackMessage="An unexpected error occurred while rendering this educational module. You can reset this section or refresh the page."

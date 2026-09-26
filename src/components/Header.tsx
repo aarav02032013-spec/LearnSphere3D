@@ -49,7 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'chemistry', label: 'Chemistry Lab' },
     { id: 'physics', label: 'Physics Simulations' },
     { id: 'notes', label: 'Notes' },
-    { id: 'study_buddy', label: 'Ask Lumi 🦉' }
+    { id: 'study_buddy', label: 'Ask Lumi (Beta) 🦉' }
   ];
 
   const overallPercent = progress ? progress.overallPercent : 25;
