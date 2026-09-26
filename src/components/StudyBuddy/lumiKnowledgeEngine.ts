@@ -959,12 +959,25 @@ IMPORTANT FORMATTING RULES:
 - Use ## and ### headings and bullet points (- ) so students can revise easily.`;
 
   // 1. Try Official @google/genai SDK with Gemini Free Flash Models if GEMINI_API_KEY was provided at build time
-  const apiKey =
-    (typeof process !== 'undefined' && process.env && process.env.GEMINI_API_KEY) || '';
+  let apiKey = '';
+  try {
+    apiKey =
+      process.env.GEMINI_API_KEY ||
+      ((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_GEMINI_API_KEY ?? '');
+  } catch {
+    apiKey = '';
+  }
 
   if (apiKey && apiKey.trim().length > 10) {
     try {
-      const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
+      const ai = new GoogleGenAI({
+        apiKey: apiKey.trim(),
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build'
+          }
+        }
+      });
       const contents = [
         ...req.history.slice(-8).map((turn) => ({
           role: turn.role,
@@ -976,7 +989,13 @@ IMPORTANT FORMATTING RULES:
         }
       ];
 
-      const freeGeminiModels = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+      const freeGeminiModels = [
+        'gemini-3.8-flash',
+        'gemini-flash-latest',
+        'gemini-3.1-flash-lite',
+        'gemini-3-flash-preview',
+        'gemini-2.5-flash'
+      ];
       for (const modelName of freeGeminiModels) {
         try {
           const response = await ai.models.generateContent({
