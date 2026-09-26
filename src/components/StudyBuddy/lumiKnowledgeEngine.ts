@@ -803,7 +803,7 @@ export function cleanAIMathFormatting(raw: string): string {
   let out = raw
     // Strip $$ ... $$ inside backticks first: `$$ ... $$` -> `...`
     .replace(/`\s*\$\$\s*([\s\S]*?)\s*\$\$\s*`/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
-    .replace(/`\s*\$\s*([^$`]+?)\s*\$\s*`/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
+    .replace(/`\s*\$\s*([^$`\n]+?)\s*\$\s*`/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
     // Display math blocks \[ ... \] and $$ ... $$
     .replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (_m, inner) => `\n- \`${cleanTexSymbols(inner)}\`\n`)
     .replace(/\$\$\s*([\s\S]*?)\s*\$\$/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
@@ -811,8 +811,8 @@ export function cleanAIMathFormatting(raw: string): string {
     .replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
     .replace(/\$([^$\n]+?)\$/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``);
 
-  // Also clean any remaining LaTeX inside backticks or bare \frac / \sqrt / \times in plain text
-  out = out.replace(/`([^`]+)`/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``);
+  // Clean any remaining LaTeX inside single-line backticks or bare \frac / \sqrt / \times in plain text
+  out = out.replace(/`([^`\n]+)`/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``);
   if (/\\(?:d?frac|sqrt|times|cdot|text|left|right|alpha|beta|gamma|theta|Delta|pi|Omega)/.test(out)) {
     out = cleanTexSymbols(out, true);
   }
@@ -951,14 +951,11 @@ export async function fetchClientGeminiFlashAnswer(req: LumiLocalRequest): Promi
       'Mode: Interactive Quiz Coach. Ask 1 engaging question or evaluate the student\'s previous answer warmly and explain the solution.'
   };
 
-  const systemPrompt = `You are Lumi, an encouraging, crystal-clear NCERT & STEM study owl tutor inside "LearnSphere 3D" for ${req.gradeBand} (Subject focus: ${req.subject}).
+  const systemPrompt = `You are Lumi, an encouraging NCERT & STEM tutor for ${req.gradeBand} (${req.subject}).
 ${modeInstructions[req.studyMode] || modeInstructions.explain}
-IMPORTANT FORMATTING RULES:
-- Directly answer the student's exact prompt (if they ask to derive an equation, show the full step-by-step derivation; if they ask "why" or "how", explain the mechanism clearly).
-- Do NOT use raw LaTeX delimiters like \\( \\), \\[ \\], or $$. Instead, write formulas inside single backticks using clean Unicode symbols, e.g. \`v² - u² = 2as\`, \`s = (v² - u²) / (2a)\`, \`s = ut + ½at²\`, \`F = m · a\`, \`pH = -log[H+]\`.
-- Use ## and ### headings and bullet points (- ) so students can revise easily.`;
+Keep your explanation clear, structured, and concise (120–220 words) using ## headings, bullet points (- ), and single backticks for formulas like \`s = (v² - u²) / (2a)\` (never use LaTeX $$ or \\frac).`;
 
-  // 1. Try Official @google/genai SDK with Gemini Free Flash Models if GEMINI_API_KEY was provided at build time
+  // 1. Try Official @google/genai SDK with Gemini Free Flash Models ONLY if a real browser AIzaSy* key is configured
   let apiKey = '';
   try {
     apiKey =
@@ -968,20 +965,15 @@ IMPORTANT FORMATTING RULES:
     apiKey = '';
   }
 
-  if (
-    apiKey &&
-    apiKey.trim().length > 10 &&
-    apiKey.trim() !== 'undefined' &&
-    apiKey.trim() !== 'MY_GEMINI_API_KEY'
-  ) {
+  if (apiKey && apiKey.trim().startsWith('AIza') && apiKey.trim().length >= 35) {
     try {
       const ai = new GoogleGenAI({
         apiKey: apiKey.trim()
       });
       const contents = [
-        ...req.history.slice(-8).map((turn) => ({
+        ...req.history.slice(-4).map((turn) => ({
           role: turn.role,
-          parts: [{ text: turn.text }]
+          parts: [{ text: turn.text.slice(0, 400) }]
         })),
         {
           role: 'user' as const,
@@ -990,11 +982,9 @@ IMPORTANT FORMATTING RULES:
       ];
 
       const freeGeminiModels = [
-        'gemini-3.8-flash',
-        'gemini-flash-latest',
-        'gemini-3.1-flash-lite',
+        'gemini-2.5-flash',
         'gemini-3-flash-preview',
-        'gemini-2.5-flash'
+        'gemini-flash-latest'
       ];
       for (const modelName of freeGeminiModels) {
         try {
@@ -1018,13 +1008,15 @@ IMPORTANT FORMATTING RULES:
     }
   }
 
-  // 2. Zero-Key Cloud AI Relay for GitHub Pages when no API key secret is configured
+  // 2. Zero-Key Cloud AI Relay for GitHub Pages (compact payload + 45s timeout so reasoning models never get cut off)
+  const compactHistory = req.history.slice(-2).map((h) => ({
+    role: h.role === 'model' ? 'assistant' : 'user',
+    content: h.text.slice(0, 300)
+  }));
+
   const messages = [
     { role: 'system', content: systemPrompt },
-    ...req.history.slice(-6).map((h) => ({
-      role: h.role === 'model' ? 'assistant' : 'user',
-      content: h.text
-    })),
+    ...compactHistory,
     { role: 'user', content: req.message }
   ];
 
@@ -1033,7 +1025,7 @@ IMPORTANT FORMATTING RULES:
     const relayModel = relayModels[i];
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 18000);
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
 
       const response = await fetch('https://text.pollinations.ai/openai', {
         method: 'POST',
@@ -1052,8 +1044,8 @@ IMPORTANT FORMATTING RULES:
       clearTimeout(timeoutId);
 
       if (response.status === 429) {
-        // Anonymous concurrency limit is 1; wait briefly before next attempt
-        await new Promise((r) => setTimeout(r, 1600));
+        // Anonymous concurrency limit is 1; wait 2.5s before retrying
+        await new Promise((r) => setTimeout(r, 2500));
         continue;
       }
 
@@ -1068,18 +1060,20 @@ IMPORTANT FORMATTING RULES:
         if (typeof aiContent === 'string' && aiContent.trim().length > 20) {
           return cleanAIMathFormatting(aiContent);
         }
+      } else if (trimmed.length > 25 && !trimmed.startsWith('{"error"')) {
+        return cleanAIMathFormatting(trimmed);
       }
     } catch {
-      // Try next relay model
+      await new Promise((r) => setTimeout(r, 1500));
     }
   }
 
   // 3. Secondary Fast GET Cloud AI Fallback for Static Hosts
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-    const getPrompt = `You are Lumi, an encouraging ${req.gradeBand} ${req.subject} tutor. Answer clearly using Markdown headings and bullet points (no LaTeX $$ delimiters): ${req.message}`;
-    const getUrl = `https://text.pollinations.ai/${encodeURIComponent(getPrompt)}?model=openai`;
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
+    const getPrompt = `You are Lumi, an encouraging ${req.gradeBand} ${req.subject} tutor. Answer concisely (150 words) using Markdown headings and bullet points (no LaTeX $$): ${req.message}`;
+    const getUrl = `https://text.pollinations.ai/${encodeURIComponent(getPrompt)}?model=openai-fast`;
 
     const getRes = await fetch(getUrl, { signal: controller.signal });
     clearTimeout(timeoutId);

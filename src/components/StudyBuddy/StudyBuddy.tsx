@@ -398,9 +398,15 @@ export const StudyBuddy: React.FC<StudyBuddyProps> = ({ onAddNote }) => {
         (window.location.hostname.includes('github.io') ||
           window.location.protocol === 'file:');
 
-      if (!isStaticGitHubPages) {
+      const apiEndpoints = isStaticGitHubPages
+        ? ['https://ais-pre-4t3zqetrtghqb54le32r34-842001065387.asia-east1.run.app/api/study-buddy/chat']
+        : ['/api/study-buddy/chat'];
+
+      for (const endpoint of apiEndpoints) {
         try {
-          const response = await fetch('/api/study-buddy/chat', {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), isStaticGitHubPages ? 6000 : 25000);
+          const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -412,8 +418,10 @@ export const StudyBuddy: React.FC<StudyBuddyProps> = ({ onAddNote }) => {
               subject,
               gradeBand,
               studyMode: activeMode
-            })
+            }),
+            signal: controller.signal
           });
+          clearTimeout(timeoutId);
 
           const contentType = (response.headers.get('content-type') || '').toLowerCase();
           const rawText = await response.text();
@@ -427,10 +435,11 @@ export const StudyBuddy: React.FC<StudyBuddyProps> = ({ onAddNote }) => {
             const data = JSON.parse(trimmedRaw);
             if (data && typeof data.reply === 'string' && data.reply.trim()) {
               replyText = data.reply;
+              break;
             }
           }
         } catch {
-          // Static host or offline — fall through to Lumi's built-in NCERT & STEM engine
+          // Static host or offline — fall through to client Gemini / Cloud AI engine
         }
       }
 
