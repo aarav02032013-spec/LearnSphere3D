@@ -17,6 +17,7 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { NoteItem } from '../../types';
+import { generateLocalLumiResponse } from './lumiKnowledgeEngine';
 
 export interface StudyChatMessage {
   id: string;
@@ -375,31 +376,60 @@ export const StudyBuddy: React.FC<StudyBuddyProps> = ({ onAddNote }) => {
     setLastFailedPrompt(null);
     setIsLoading(true);
 
+    const historyPayload = messages
+      .filter((m) => m.id !== 'lumi_welcome_1')
+      .slice(-10)
+      .map((m) => ({ role: m.role, text: m.text }));
+
     try {
-      const response = await fetch('/api/study-buddy/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let replyText: string | null = null;
+
+      try {
+        const response = await fetch('/api/study-buddy/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          body: JSON.stringify({
+            message: trimmed,
+            history: historyPayload,
+            subject,
+            gradeBand,
+            studyMode: activeMode
+          })
+        });
+
+        const contentType = response.headers.get('content-type') || '';
+        const rawText = await response.text();
+
+        // Only parse JSON if the response is actually JSON (prevents GitHub Pages 404/405 HTML parse error)
+        if (contentType.includes('application/json') && !rawText.trim().startsWith('<')) {
+          const data = JSON.parse(rawText);
+          if (response.ok && data?.reply) {
+            replyText = data.reply;
+          }
+        }
+      } catch {
+        // Static hosting (e.g., GitHub Pages) or offline mode — seamlessly use Lumi's built-in NCERT & STEM engine
+      }
+
+      if (!replyText) {
+        // Brief natural thinking pause for static/offline mode
+        await new Promise((resolve) => setTimeout(resolve, 380));
+        replyText = generateLocalLumiResponse({
           message: trimmed,
-          history: messages
-            .filter((m) => m.id !== 'lumi_welcome_1')
-            .slice(-10)
-            .map((m) => ({ role: m.role, text: m.text })),
+          history: historyPayload,
           subject,
           gradeBand,
           studyMode: activeMode
-        })
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || `Server responded with status ${response.status}`);
+        });
       }
 
       const lumiMsg: StudyChatMessage = {
         id: `lumi_${Date.now()}`,
         role: 'model',
-        text: data.reply,
+        text: replyText,
         timestamp: Date.now(),
         subject,
         mode: modeLabel
@@ -410,7 +440,7 @@ export const StudyBuddy: React.FC<StudyBuddyProps> = ({ onAddNote }) => {
       const msg =
         err instanceof Error
           ? err.message
-          : 'Could not reach Lumi right now. Please check your connection and try again.';
+          : 'Could not reach Lumi right now. Please try again.';
       setErrorMsg(msg);
       setLastFailedPrompt(trimmed);
     } finally {
