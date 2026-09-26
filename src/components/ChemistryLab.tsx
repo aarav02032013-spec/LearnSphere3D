@@ -15,12 +15,14 @@ import {
 } from 'lucide-react';
 import { CHEMICALS, REACTIONS } from '../data/chemistryData';
 import { Chemical, ReactionResult } from '../types';
+import { FormulaCrafter } from './FormulaCrafter';
 
 interface ChemistryLabProps {
   onAddNote: (title: string, subject: 'Chemistry', content: string, tags: string[], labRef: string) => void;
 }
 
 export const ChemistryLab: React.FC<ChemistryLabProps> = ({ onAddNote }) => {
+  const [chemSectionTab, setChemSectionTab] = useState<'beaker' | 'crafter'>('beaker');
   const [selectedChemicals, setSelectedChemicals] = useState<Chemical[]>([]);
   const [currentTemp, setCurrentTemp] = useState<number>(22.0); // Room temp
   const [heatingActive, setHeatingActive] = useState<boolean>(false);
@@ -231,40 +233,75 @@ ${rx.safetyNote}` : 'No chemical reaction observed. Solution remained in thermod
   return (
     <div className="space-y-6">
       {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-slate-800">
         <div>
           <h2 className="font-display text-2xl font-bold tracking-tight text-white flex items-center gap-2">
             <span>Chemistry Lab Workbench</span>
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Safe chemical-mixing simulation with real-time reaction stoichiometry, enthalpy, and pH dynamics.
+            Safe chemical-mixing simulation, valency criss-cross formula crafter, polyatomic ions, and compound synthesis.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowMolecularView(!showMolecularView)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
-              showMolecularView
-                ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
-                : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white'
-            }`}
-          >
-            <Atom className="w-3.5 h-3.5 text-cyan-400" />
-            <span>{showMolecularView ? 'Hide Molecular View' : 'Molecular Level View'}</span>
-          </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Sub-Section Switcher: Wet Reaction Beaker vs. Formula Crafter */}
+          <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setChemSectionTab('beaker')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                chemSectionTab === 'beaker'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
+              }`}
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
+              <span>Reaction Beaker Lab</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setChemSectionTab('crafter')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                chemSectionTab === 'crafter'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
+              }`}
+            >
+              <Atom className="w-3.5 h-3.5" />
+              <span>Formula Crafter (Ions & Compounds)</span>
+            </button>
+          </div>
 
-          <button
-            onClick={handleClearBeaker}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-900 border border-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Beaker</span>
-          </button>
+          {chemSectionTab === 'beaker' && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowMolecularView(!showMolecularView)}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl border transition-all cursor-pointer ${
+                  showMolecularView
+                    ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+                    : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                <Atom className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{showMolecularView ? 'Hide Molecular View' : 'Molecular Level View'}</span>
+              </button>
+
+              <button
+                onClick={handleClearBeaker}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-slate-900 border border-slate-800 text-slate-400 hover:text-white rounded-xl transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Beaker</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Main Lab Layout */}
+      {chemSectionTab === 'crafter' ? (
+        <FormulaCrafter onAddNote={onAddNote} />
+      ) : (
+      /* Main Lab Layout */
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left: Chemical Reagents Shelf */}
         <div className="lg:col-span-4 space-y-4">
@@ -509,6 +546,7 @@ ${rx.safetyNote}` : 'No chemical reaction observed. Solution remained in thermod
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };
