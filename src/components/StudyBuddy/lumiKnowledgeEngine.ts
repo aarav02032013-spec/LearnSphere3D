@@ -437,6 +437,78 @@ During which stage of **Mitosis** do chromosomes line up along the **equatorial 
     quizExplanation: `**Metaphase**! During metaphase, chromosomes reach maximum condensation and align along the equatorial (metaphase) plate!`
   },
   {
+    keywords: ['equation of motion', 'equations of motion', 'third equation of motion', 'second equation of motion', 'first equation of motion', 'v^2 - u^2', 'v2 - u2', '2as', 'ut + 1/2', 'v = u + at'],
+    title: 'Derivation of the Three Equations of Motion (Class 9 & 11 Physics)',
+    subject: 'Physics',
+    explain: `## Step-by-Step Derivation of the Equations of Motion
+
+Consider a body moving in a straight line with **uniform acceleration (\`a\`)**:
+- \`u\` = Initial velocity (at time \`t = 0\`)
+- \`v\` = Final velocity (after time \`t\`)
+- \`s\` = Displacement covered in time \`t\`
+
+---
+
+### 1. First Equation of Motion: \`v = u + at\` (Velocity–Time Relation)
+- By definition, **acceleration (\`a\`)** is the rate of change of velocity:
+  \`a = (Change in velocity) / (Time taken) = (v - u) / t\`
+- Multiply both sides by \`t\`:
+  \`a · t = v - u\`
+- Rearranging gives the **First Equation of Motion**:
+  **\`v = u + at\`**  *(Equation 1)*
+
+---
+
+### 2. Second Equation of Motion: \`s = ut + ½at²\` (Position–Time Relation)
+- For uniform acceleration, **Average Velocity** is:
+  \`v_avg = (u + v) / 2\`
+- Total displacement \`s = Average Velocity × Time\`:
+  \`s = ((u + v) / 2) × t\`
+- Substitute \`v = u + at\` from *Equation 1*:
+  \`s = ((u + u + at) / 2) × t = ((2u + at) / 2) × t\`
+- Distribute \`t\` and split the fraction:
+  **\`s = ut + ½at²\`**  *(Equation 2)*
+
+---
+
+### 3. Third Equation of Motion: \`v² - u² = 2as\` (Position–Velocity Relation)
+
+#### Method A: Algebraic / Substitution Method
+1. Start with the displacement formula using average velocity:
+   \`s = ((v + u) / 2) × t\`
+2. From the First Equation of Motion (\`v = u + at\`), express time \`t\` in terms of \`v, u, a\`:
+   \`t = (v - u) / a\`
+3. Substitute \`t = (v - u) / a\` into the displacement equation:
+   \`s = ((v + u) / 2) × ((v - u) / a)\`
+4. Multiply the numerators using the algebraic identity \`(v + u)(v - u) = v² - u²\`:
+   \`s = (v² - u²) / (2a)\`
+5. Multiply both sides by \`2a\`:
+   **\`v² - u² = 2as\`**  *(or \`2as = v² - u²\`)*
+
+#### Method B: Graphical Method (Velocity–Time Graph)
+1. In a velocity–time (\`v–t\`) graph for uniform acceleration, the displacement \`s\` equals the **area of the trapezium OABC** under the line:
+   \`s = ½ × (Sum of parallel sides) × (Height)\`
+   \`s = ½ × (u + v) × t\`
+2. The slope of the velocity–time graph gives acceleration \`a = (v - u) / t\`, which means:
+   \`t = (v - u) / a\`
+3. Substituting \`t\` into the trapezium area formula:
+   \`s = ½ × (v + u) × ((v - u) / a) = (v² - u²) / (2a)\`
+4. Rearranging gives:
+   **\`v² - u² = 2as\`**`,
+    solver: `### When to Use Which Equation in Numericals:
+- **No displacement (\`s\`) mentioned?** → Use \`v = u + at\`
+- **No final velocity (\`v\`) mentioned?** → Use \`s = ut + ½at²\`
+- **No time (\`t\`) mentioned?** → Use \`v² - u² = 2as\``,
+    exam: `### High-Yield Exam Tips for Full Marks:
+- Always begin your derivation by **defining the symbols** (\`u\`, \`v\`, \`a\`, \`t\`, \`s\`) and stating **"for a body moving with uniform acceleration"**.
+- If the exam asks for the **Graphical Derivation**, draw a neat velocity–time trapezium graph with \`u\` on the y-axis at \`t = 0\` and \`v\` at time \`t\`, and write \`s = Area of trapezium OABC\`.`,
+    memoryTrick: `Lumi's Memory Trick: To derive the **3rd Equation (\`v² - u² = 2as\`)**, notice that **time \`t\` is missing**! So just take \`s = ((v + u)/2) · t\` and replace \`t\` with \`(v - u)/a\` — then \`(v + u)(v - u)\` magically becomes \`v² - u²\`!`,
+    quizQuestion: `**Quick Kinematics Quiz!** 🦉
+In the derivation of the third equation of motion (\`v² - u² = 2as\`), which variable do we eliminate by substituting \`t = (v - u) / a\`?`,
+    quizAnswerKey: ['time', 't'],
+    quizExplanation: `We eliminate **time (\`t\`)**! That is why \`v² - u² = 2as\` is called the **Position–Velocity relation** and is super useful whenever a problem doesn't give you the time taken!`
+  },
+  {
     keywords: ['newton', 'inertia', 'momentum', 'impulse', 'action and reaction', 'force', 'f = ma', 'laws of motion'],
     title: 'Newton’s Laws of Motion, Momentum & Impulse',
     subject: 'Physics',
@@ -721,15 +793,134 @@ function extractCleanTopicQuery(question: string): string {
 }
 
 /**
- * Live CORS-enabled Wikipedia Academic Knowledge Fetcher for Static Hosts (GitHub Pages).
- * Works 100% in the browser on *.github.io without any backend server or API key!
+ * Cleans LaTeX math delimiters from LLM outputs into readable backtick/Unicode math
+ * so formulas render cleanly in Lumi's chat UI.
+ */
+function cleanAIMathFormatting(raw: string): string {
+  return raw
+    .replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (_m, inner) => `\n- \`${cleanTexSymbols(inner.trim())}\`\n`)
+    .replace(/\$\$\s*([\s\S]*?)\s*\$\$/g, (_m, inner) => `\n- \`${cleanTexSymbols(inner.trim())}\`\n`)
+    .replace(/\\\(\s*(.*?)\s*\\\)/g, (_m, inner) => `\`${cleanTexSymbols(inner.trim())}\``)
+    .replace(/\$([^$\n]+)\$/g, (_m, inner) => `\`${cleanTexSymbols(inner.trim())}\``)
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function cleanTexSymbols(tex: string): string {
+  return tex
+    .replace(/\\tag\{[^}]*\}/g, '')
+    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1)/($2)')
+    .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
+    .replace(/\\times/g, '×')
+    .replace(/\\cdot/g, '·')
+    .replace(/\\div/g, '÷')
+    .replace(/\\pm/g, '±')
+    .replace(/\\rightarrow|\\to/g, '→')
+    .replace(/\\leftarrow/g, '←')
+    .replace(/\\Delta/g, 'Δ')
+    .replace(/\\theta/g, 'θ')
+    .replace(/\\alpha/g, 'α')
+    .replace(/\\beta/g, 'β')
+    .replace(/\\gamma/g, 'γ')
+    .replace(/\\lambda/g, 'λ')
+    .replace(/\\mu/g, 'μ')
+    .replace(/\\pi/g, 'π')
+    .replace(/\\Omega/g, 'Ω')
+    .replace(/\^\{2\}|\^2/g, '²')
+    .replace(/\^\{3\}|\^3/g, '³')
+    .replace(/\^\{([^{}]+)\}/g, '^$1')
+    .replace(/_\{([^{}]+)\}/g, '_$1')
+    .replace(/\\text\{([^{}]+)\}/g, '$1')
+    .replace(/\\left|\\right/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Calls a free, zero-API-key, CORS-enabled Generative AI endpoint directly from the browser.
+ * This ensures that on static hosts like GitHub Pages (*.github.io), Lumi acts as a true
+ * conversational AI tutor capable of deriving equations, solving custom problems, and explaining any concept!
+ */
+async function fetchZeroKeyGenerativeAI(req: LumiLocalRequest): Promise<string | null> {
+  const modeInstructions: Record<string, string> = {
+    explain:
+      'Mode: Explain Simply. Answer the exact question asked step-by-step using clear headings, everyday analogies, worked derivations/examples when relevant, and end with a line starting with "Lumi\'s Memory Trick: ".',
+    solver:
+      'Mode: Step-by-Step Solver. State the given quantities/definitions, write the exact formula, show every algebraic or numerical step clearly with units, and highlight the final answer.',
+    exam:
+      'Mode: Exam & NCERT Revision Coach. Provide the exact textbook derivation/definition, high-yield board exam points, common pitfalls to avoid, and end with "Lumi\'s Study Tip: ".',
+    quiz:
+      'Mode: Interactive Quiz Coach. Ask 1 engaging question or evaluate the student\'s previous answer warmly and explain the solution.'
+  };
+
+  const systemPrompt = `You are Lumi, an encouraging, crystal-clear NCERT & STEM study owl tutor inside "LearnSphere 3D" for ${req.gradeBand} (Subject focus: ${req.subject}).
+${modeInstructions[req.studyMode] || modeInstructions.explain}
+IMPORTANT FORMATTING RULES:
+- Directly answer the student's exact prompt (if they ask to derive an equation, show the full step-by-step derivation; if they ask "why" or "how", explain the mechanism clearly).
+- Do NOT use LaTeX delimiters like \\( \\) or \\[ \\] or $$. Instead, write formulas inside single backticks using clean Unicode symbols, e.g. \`v² - u² = 2as\`, \`s = ut + ½at²\`, \`F = m · a\`, \`pH = -log[H+]\`.
+- Use ## and ### headings and bullet points (- ) so students can revise easily.`;
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...req.history.slice(-6).map((h) => ({
+      role: h.role === 'model' ? 'assistant' : 'user',
+      content: h.text
+    })),
+    { role: 'user', content: req.message }
+  ];
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+    const response = await fetch('https://text.pollinations.ai/openai', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'openai',
+        messages,
+        temperature: 0.6
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) return null;
+    const rawText = await response.text();
+    const trimmed = rawText.trim();
+    if (!trimmed || trimmed.startsWith('<')) return null;
+
+    if (trimmed.startsWith('{')) {
+      const data = JSON.parse(trimmed);
+      const aiContent = data?.choices?.[0]?.message?.content;
+      if (typeof aiContent === 'string' && aiContent.trim().length > 20) {
+        return cleanAIMathFormatting(aiContent);
+      }
+    }
+  } catch {
+    // Fall through if offline or blocked
+  }
+
+  return null;
+}
+
+/**
+ * Live AI + Academic Knowledge Engine for Static Hosts (GitHub Pages) & Server Fallback.
  */
 export async function fetchLiveAcademicAnswer(req: LumiLocalRequest): Promise<string | null> {
-  // First check if our rich local NCERT/STEM library has an exact match
+  // 1. Call our Zero-Key CORS Generative AI Tutor FIRST so ANY question, derivation, numerical, or explanation is answered specifically and conversationally!
+  const generativeAIReply = await fetchZeroKeyGenerativeAI(req);
+  if (generativeAIReply) return generativeAIReply;
+
+  // 2. Offline / Fallback: Check our curated NCERT/STEM library (derivations, atomicity, 118 elements, numericals)
   const localMatch = findExactLocalMatch(req);
   if (localMatch) return localMatch;
 
-  // Check if the student is asking "difference between X and Y" or "compare X and Y" or "X vs Y"
+  // 3. Fallback if AI endpoint is unreachable: Check "difference between X and Y" via Wikipedia CORS API
   const diffMatch = req.message.match(
     /(?:difference\s+between|compare|distinguish\s+between)\s+(.+?)\s+and\s+([^?.!]+)|([^\s?.!]+(?:\s+[^\s?.!]+){0,2})\s+vs\.?\s+([^\s?.!]+(?:\s+[^\s?.!]+){0,2})/i
   );

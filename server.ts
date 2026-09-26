@@ -16,6 +16,17 @@ const PORT = 3000;
 
 app.use(express.json({ limit: '2mb' }));
 
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+
 function getGenAIClient() {
   return new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY,
@@ -90,16 +101,32 @@ Formatting guidelines:
       },
     ];
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-      },
-    });
+    const modelsToTry = ['gemini-3-flash-preview', 'gemini-3.8-flash'];
+    let replyText = '';
 
-    const replyText = response.text || "I'm here and ready to help you study! Could you rephrase that question?";
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents,
+          config: {
+            systemInstruction,
+            temperature: 0.7,
+          },
+        });
+        if (response.text && response.text.trim()) {
+          replyText = response.text.trim();
+          break;
+        }
+      } catch (modelErr) {
+        console.warn(`Model ${modelName} failed, trying next:`, modelErr);
+      }
+    }
+
+    if (!replyText) {
+      throw new Error('All Gemini models temporarily unavailable');
+    }
+
     res.json({ reply: replyText });
   } catch (error: unknown) {
     console.warn('Gemini API unavailable in /api/study-buddy/chat, using built-in Lumi knowledge engine:', error);
