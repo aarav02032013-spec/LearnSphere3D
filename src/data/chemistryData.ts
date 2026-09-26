@@ -201,5 +201,33 @@ export const REACTIONS: ReactionResult[] = [
     molecularExplanation: 'Oxidation creates 3-aminophthalate in an electronically excited triplet state. As electrons relax down to the ground singlet orbital, energy is emitted directly as visible blue light photons (425 nm).',
     realWorldApplication: 'Forensic bloodstain detection (hemoglobin iron catalyzes reaction); marine bioluminescence in deep-sea jellyfish.',
     safetyNote: 'Safe cold-light reaction. Minimal thermal delta (temperature remains room level).'
+  },
+  {
+    id: 'thermal_cuo_dehydration',
+    name: 'Thermal Dehydration to Black Copper(II) Oxide (Requires Burner ≥ 55°C)',
+    equation: 'CuSO₄(aq) + 2NaOH(aq) ──[Δ ≥ 55°C]──> CuO(s) ↓ (Black) + Na₂SO₄(aq) + H₂O(l)',
+    requiredIds: ['cuso4', 'naoh'],
+    minTemp: 55,
+    resultColor: '#334155',
+    resultPH: 8.5,
+    precipitate: true,
+    precipitateName: 'Copper(II) Oxide (CuO) Black Precipitate',
+    molecularExplanation: 'At room temperature, Cu²⁺ and OH⁻ form pale blue Cu(OH)₂. When heated above 55°C with the Bunsen Burner, thermal energy overcomes the activation barrier to dehydrate Cu(OH)₂ into insoluble black Copper(II) Oxide (CuO).',
+    realWorldApplication: 'Synthesis of black copper oxide pigments, ceramic glazes, and semiconductor precursors.',
+    safetyNote: 'Heat gently with the magnetic stirrer running to prevent localized bumping of the alkaline suspension.'
+  },
+  {
+    id: 'thermal_caco3_calcination',
+    name: 'Endothermic Thermal Decomposition of Limestone (Requires Burner ≥ 65°C)',
+    equation: 'CaCO₃(s) ──[Δ Heat ≥ 65°C]──> CaO(s) (Quicklime) + CO₂(g) ↑',
+    requiredIds: ['caco3'],
+    minTemp: 65,
+    resultColor: '#F1F5F9',
+    resultPH: 11.2,
+    gasEvolution: true,
+    effervescenceName: 'Thermally Liberated Carbon Dioxide (CO₂) Gas',
+    molecularExplanation: 'Supplying continuous thermal energy from the Bunsen Burner vibrates the carbonate (CO₃²⁻) bonds until they cleave endothermically into basic Calcium Oxide (CaO) and escaping CO₂ gas bubbles.',
+    realWorldApplication: 'Industrial rotary kiln calcination of limestone to manufacture Portland cement and Quicklime.',
+    safetyNote: 'Endothermic reaction — stops if temperature drops below the activation threshold.'
   }
 ];

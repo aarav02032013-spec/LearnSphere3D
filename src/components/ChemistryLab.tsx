@@ -423,7 +423,7 @@ ${rx.safetyNote}` : 'No chemical reaction observed. Solution remained in thermod
 
             <button
               onClick={() => setStirrerActive(!stirrerActive)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded-xl border transition-all ${
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
                 stirrerActive
                   ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300 shadow-md shadow-cyan-950/40'
                   : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800/40'
@@ -432,6 +432,27 @@ ${rx.safetyNote}` : 'No chemical reaction observed. Solution remained in thermod
               <Sparkles className={`w-3.5 h-3.5 ${stirrerActive ? 'text-cyan-400 animate-spin' : ''}`} />
               <span>{stirrerActive ? 'Stirrer Spinning' : 'Magnetic Stirrer'}</span>
             </button>
+          </div>
+
+          {/* Live Kinetics Status for Burner & Magnetic Stirrer */}
+          <div className="w-full p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/90 text-[11px] text-slate-300 space-y-1">
+            <div className="flex items-center justify-between font-mono">
+              <span>
+                Burner:{' '}
+                <strong className={heatingActive ? 'text-red-400' : 'text-slate-400'}>
+                  {heatingActive ? `Heating (+0.8°C/s → ${currentTemp.toFixed(1)}°C)` : 'Standby (Cooling to 22°C)'}
+                </strong>
+              </span>
+              <span>
+                Stirrer:{' '}
+                <strong className={stirrerActive ? 'text-cyan-300' : 'text-slate-400'}>
+                  {stirrerActive ? '600 RPM (2.5× Collision Rate)' : '0 RPM'}
+                </strong>
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 leading-snug">
+              Tip: Use the <strong>Burner</strong> to unlock endothermic reactions (e.g., <code className="text-cyan-300">CuSO₄ + NaOH ≥ 55°C</code> or <code className="text-cyan-300">CaCO₃ ≥ 65°C</code>) and the <strong>Magnetic Stirrer</strong> to agitate ions & prevent precipitate settling.
+            </p>
           </div>
         </div>
 
