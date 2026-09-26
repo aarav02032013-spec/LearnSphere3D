@@ -17,7 +17,11 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { NoteItem } from '../../types';
-import { generateLocalLumiResponse, fetchLiveAcademicAnswer } from './lumiKnowledgeEngine';
+import {
+  generateLocalLumiResponse,
+  fetchLiveAcademicAnswer,
+  cleanAIMathFormatting
+} from './lumiKnowledgeEngine';
 
 export interface StudyChatMessage {
   id: string;
@@ -156,9 +160,10 @@ const LumiMascotAvatar: React.FC<{ isThinking?: boolean; size?: 'sm' | 'lg' }> =
   );
 };
 
-// Clean Markdown-lite Renderer for Lumi's Study Responses
+// Clean Markdown-lite & Math Renderer for Lumi's Study Responses
 const FormattedStudyText: React.FC<{ text: string }> = ({ text }) => {
-  const lines = text.split('\n');
+  const cleanedText = cleanAIMathFormatting(text);
+  const lines = cleanedText.split('\n');
 
   const renderInline = (line: string) => {
     // Handle `code` and **bold** and *italic*
@@ -263,7 +268,12 @@ export const StudyBuddy: React.FC<StudyBuddyProps> = ({ onAddNote }) => {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((m: StudyChatMessage) => ({
+            ...m,
+            text: m.role === 'model' ? cleanAIMathFormatting(m.text) : m.text
+          }));
+        }
       }
     } catch {}
     return [INITIAL_WELCOME_MESSAGE];
@@ -447,7 +457,7 @@ export const StudyBuddy: React.FC<StudyBuddyProps> = ({ onAddNote }) => {
       const lumiMsg: StudyChatMessage = {
         id: `lumi_${Date.now()}`,
         role: 'model',
-        text: replyText,
+        text: cleanAIMathFormatting(replyText),
         timestamp: Date.now(),
         subject,
         mode: modeLabel

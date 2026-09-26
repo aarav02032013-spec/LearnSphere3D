@@ -6,6 +6,7 @@ import { GoogleGenAI } from '@google/genai';
 import {
   generateLocalLumiResponse,
   fetchLiveAcademicAnswer,
+  cleanAIMathFormatting,
 } from './src/components/StudyBuddy/lumiKnowledgeEngine';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -85,7 +86,8 @@ Your personality & tone:
 - ${modeInstructions[studyMode] || modeInstructions.explain}
 
 Formatting guidelines:
-- Use clean Markdown (**bold** for key terms, bullet lists for steps, and \`inline code\` for formulas/equations like \`F = I * L * B\` or \`pH = -log[H+]\`).
+- Use clean Markdown (**bold** for key terms, bullet lists for steps, and \`inline code\` for formulas/equations like \`s = (v² - u²) / (2a)\` or \`pH = -log[H+]\`).
+- Do NOT use raw LaTeX delimiters like $$...$$, $...$, \\(...\\), \\[...\\], or \\frac{a}{b}. Write formulas using clean Unicode symbols inside backticks.
 - Include a short "Lumi's Study Tip:" or "Memory Trick:" line when helpful for retention.`;
 
     const ai = getGenAIClient();
@@ -127,7 +129,7 @@ Formatting guidelines:
       throw new Error('All Gemini models temporarily unavailable');
     }
 
-    res.json({ reply: replyText });
+    res.json({ reply: cleanAIMathFormatting(replyText) });
   } catch (error: unknown) {
     console.warn('Gemini API unavailable in /api/study-buddy/chat, using built-in Lumi knowledge engine:', error);
     const {

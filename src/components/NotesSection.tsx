@@ -15,6 +15,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { NoteItem } from '../types';
+import { cleanAIMathFormatting } from './StudyBuddy/lumiKnowledgeEngine';
 
 interface NotesSectionProps {
   notes: NoteItem[];
@@ -292,7 +293,7 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
                     </div>
 
                     <p className="text-[11px] text-slate-400 line-clamp-2 mt-1.5 leading-relaxed">
-                      {note.content.replace(/###|##|#|\*|`/g, '')}
+                      {cleanAIMathFormatting(note.content).replace(/###|##|#|\*|`/g, '')}
                     </p>
 
                     {note.tags && note.tags.length > 0 && (
@@ -418,7 +419,7 @@ export const NotesSection: React.FC<NotesSectionProps> = ({
                   />
                 ) : (
                   <div className="prose prose-invert max-w-none text-xs text-slate-300 space-y-3 leading-relaxed whitespace-pre-line">
-                    {activeNote.content}
+                    {cleanAIMathFormatting(activeNote.content)}
                   </div>
                 )}
               </div>

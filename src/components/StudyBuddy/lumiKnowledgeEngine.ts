@@ -793,30 +793,123 @@ function extractCleanTopicQuery(question: string): string {
 }
 
 /**
- * Cleans LaTeX math delimiters from LLM outputs into readable backtick/Unicode math
- * so formulas render cleanly in Lumi's chat UI.
+ * Cleans LaTeX math delimiters and \frac / superscript / subscript commands from LLM outputs
+ * into readable backtick/Unicode math so formulas render cleanly across the entire website.
  */
-function cleanAIMathFormatting(raw: string): string {
-  return raw
-    .replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (_m, inner) => `\n- \`${cleanTexSymbols(inner.trim())}\`\n`)
-    .replace(/\$\$\s*([\s\S]*?)\s*\$\$/g, (_m, inner) => `\n- \`${cleanTexSymbols(inner.trim())}\`\n`)
-    .replace(/\\\(\s*(.*?)\s*\\\)/g, (_m, inner) => `\`${cleanTexSymbols(inner.trim())}\``)
-    .replace(/\$([^$\n]+)\$/g, (_m, inner) => `\`${cleanTexSymbols(inner.trim())}\``)
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+export function cleanAIMathFormatting(raw: string): string {
+  if (!raw) return '';
+
+  let out = raw
+    // Strip $$ ... $$ inside backticks first: `$$ ... $$` -> `...`
+    .replace(/`\s*\$\$\s*([\s\S]*?)\s*\$\$\s*`/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
+    .replace(/`\s*\$\s*([^$`]+?)\s*\$\s*`/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
+    // Display math blocks \[ ... \] and $$ ... $$
+    .replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (_m, inner) => `\n- \`${cleanTexSymbols(inner)}\`\n`)
+    .replace(/\$\$\s*([\s\S]*?)\s*\$\$/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
+    // Inline math \( ... \) and $ ... $
+    .replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
+    .replace(/\$([^$\n]+?)\$/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``);
+
+  // Also clean any remaining LaTeX inside backticks or bare \frac / \sqrt / \times in plain text
+  out = out.replace(/`([^`]+)`/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``);
+  if (/\\(?:d?frac|sqrt|times|cdot|text|left|right|alpha|beta|gamma|theta|Delta|pi|Omega)/.test(out)) {
+    out = cleanTexSymbols(out, true);
+  }
+
+  return out.replace(/\n{3,}/g, '\n\n').trim();
 }
 
-function cleanTexSymbols(tex: string): string {
-  return tex
+export function cleanTexSymbols(tex: string, preserveNewlines = false): string {
+  let s = tex
+    .replace(/\$\$/g, '')
     .replace(/\\tag\{[^}]*\}/g, '')
-    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1)/($2)')
+    .replace(/\\text\{([^{}]*)\}/g, '$1')
+    .replace(/\\mathrm\{([^{}]*)\}/g, '$1')
+    .replace(/\\mathbf\{([^{}]*)\}/g, '$1')
+    .replace(/\\left\s*([()[\]|])/g, '$1')
+    .replace(/\\right\s*([()[\]|])/g, '$1')
+    .replace(/\\left|\\right/g, '');
+
+  // Convert superscripts and subscripts BEFORE \frac so inner braces like v^{2} don't block \frac matching
+  const supMap: Record<string, string> = {
+    '0': '⁰',
+    '1': '¹',
+    '2': '²',
+    '3': '³',
+    '4': '⁴',
+    '5': '⁵',
+    '6': '⁶',
+    '7': '⁷',
+    '8': '⁸',
+    '9': '⁹',
+    '+': '⁺',
+    '-': '⁻',
+    n: 'ⁿ'
+  };
+  const subMap: Record<string, string> = {
+    '0': '₀',
+    '1': '₁',
+    '2': '₂',
+    '3': '₃',
+    '4': '₄',
+    '5': '₅',
+    '6': '₆',
+    '7': '₇',
+    '8': '₈',
+    '9': '₉',
+    '+': '₊',
+    '-': '₋'
+  };
+
+  s = s
+    .replace(/\^\{([0-9+-n]+)\}/g, (_m, exp: string) =>
+      exp
+        .split('')
+        .map((c) => supMap[c] || c)
+        .join('')
+    )
+    .replace(/\^([0-9])/g, (_m, d: string) => supMap[d] || `^${d}`)
+    .replace(/\^\{([^{}]+)\}/g, '^($1)')
+    .replace(/_\{([0-9+-]+)\}/g, (_m, sub: string) =>
+      sub
+        .split('')
+        .map((c) => subMap[c] || c)
+        .join('')
+    )
+    .replace(/_([0-9])/g, (_m, d: string) => subMap[d] || `_${d}`)
+    .replace(/_\{([^{}]+)\}/g, '_$1');
+
+  // Resolve \frac, \dfrac, \tfrac iteratively (handles nested fractions)
+  for (let i = 0; i < 4; i++) {
+    s = s.replace(/\\[dt]?frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, (_m, num: string, den: string) => {
+      const n = num.trim();
+      const d = den.trim();
+      if (n === '1' && d === '2') return '½';
+      if (n === '1' && d === '3') return '⅓';
+      if (n === '1' && d === '4') return '¼';
+      if (n === '3' && d === '4') return '¾';
+      const nWrap = /[+\-*/\s]/.test(n) ? `(${n})` : n;
+      const dWrap = /[+\-*/\s]/.test(d) || d.length > 1 ? `(${d})` : d;
+      return `${nWrap} / ${dWrap}`;
+    });
+  }
+
+  s = s
     .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
     .replace(/\\times/g, '×')
     .replace(/\\cdot/g, '·')
     .replace(/\\div/g, '÷')
     .replace(/\\pm/g, '±')
-    .replace(/\\rightarrow|\\to/g, '→')
+    .replace(/\\mp/g, '∓')
+    .replace(/\\leq|\\le/g, '≤')
+    .replace(/\\geq|\\ge/g, '≥')
+    .replace(/\\neq|\\ne/g, '≠')
+    .replace(/\\approx/g, '≈')
+    .replace(/\\propto/g, '∝')
+    .replace(/\\infty/g, '∞')
+    .replace(/\\rightarrow|\\to|\\longrightarrow/g, '→')
     .replace(/\\leftarrow/g, '←')
+    .replace(/\\rightleftharpoons/g, '⇌')
     .replace(/\\Delta/g, 'Δ')
     .replace(/\\theta/g, 'θ')
     .replace(/\\alpha/g, 'α')
@@ -824,16 +917,20 @@ function cleanTexSymbols(tex: string): string {
     .replace(/\\gamma/g, 'γ')
     .replace(/\\lambda/g, 'λ')
     .replace(/\\mu/g, 'μ')
+    .replace(/\\nu/g, 'ν')
     .replace(/\\pi/g, 'π')
+    .replace(/\\rho/g, 'ρ')
+    .replace(/\\sigma/g, 'σ')
+    .replace(/\\omega/g, 'ω')
     .replace(/\\Omega/g, 'Ω')
-    .replace(/\^\{2\}|\^2/g, '²')
-    .replace(/\^\{3\}|\^3/g, '³')
-    .replace(/\^\{([^{}]+)\}/g, '^$1')
-    .replace(/_\{([^{}]+)\}/g, '_$1')
-    .replace(/\\text\{([^{}]+)\}/g, '$1')
-    .replace(/\\left|\\right/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/\\,/g, ' ')
+    .replace(/\\;/g, ' ')
+    .replace(/\\quad|\\qquad/g, '  ');
+
+  if (!preserveNewlines) {
+    s = s.replace(/\s+/g, ' ').trim();
+  }
+  return s;
 }
 
 /**
