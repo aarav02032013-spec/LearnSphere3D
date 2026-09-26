@@ -2,16 +2,6 @@ import React, { useState } from 'react';
 import { HelpCircle, Sparkles, Trophy, CheckCircle2 } from 'lucide-react';
 import { GradeLevel } from '../types';
 
-export interface WebsiteProgressSummary {
-  overallPercent: number;
-  diagramsExplored: number;
-  totalDiagrams: number;
-  quizzesMastered: number;
-  sectionsVisited: number;
-  totalSections: number;
-  notesCount: number;
-}
-
 export type AppSectionId =
   | 'visual_learning'
   | 'learning'
@@ -21,6 +11,26 @@ export type AppSectionId =
   | 'physics'
   | 'notes'
   | 'study_buddy';
+
+export interface TabProgressItem {
+  id: AppSectionId;
+  label: string;
+  percent: number;
+  detail: string;
+  colorClass: string;
+  textClass: string;
+}
+
+export interface WebsiteProgressSummary {
+  overallPercent: number;
+  diagramsExplored: number;
+  totalDiagrams: number;
+  quizzesMastered: number;
+  sectionsVisited: number;
+  totalSections: number;
+  notesCount: number;
+  tabProgress: TabProgressItem[];
+}
 
 interface HeaderProps {
   activeSection: AppSectionId;
@@ -121,21 +131,29 @@ export const Header: React.FC<HeaderProps> = ({
 
                 {/* Dropdown Progress Breakdown Card */}
                 {showProgressDetails && (
-                  <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl p-4 shadow-2xl z-50 space-y-3">
+                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl p-4 shadow-2xl z-50 space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                       <div className="flex items-center gap-2">
                         <Trophy className="w-4 h-4 text-amber-400" />
                         <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                          Learning Progress
+                          Learning Progress Tracker
                         </h4>
                       </div>
                       <span className="text-xs font-mono font-bold text-cyan-300 bg-cyan-500/15 px-2 py-0.5 rounded-md border border-cyan-500/30">
-                        {overallPercent}% Complete
+                        {overallPercent}% Overall
                       </span>
                     </div>
 
                     {/* Overall Bar */}
                     <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400 font-medium">
+                          All 8 Learning Tabs ({progress.sectionsVisited}/{progress.totalSections} visited)
+                        </span>
+                        <span className="font-mono font-semibold text-emerald-300">
+                          {progress.quizzesMastered}/{progress.totalDiagrams} quizzes mastered
+                        </span>
+                      </div>
                       <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
                         <div
                           className="h-full bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400 rounded-full transition-all duration-500"
@@ -144,58 +162,49 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                     </div>
 
-                    {/* Detailed Breakdown Bars */}
-                    <div className="space-y-2.5 text-xs pt-1">
-                      <div>
-                        <div className="flex justify-between text-[11px] mb-1">
-                          <span className="text-slate-300">NCERT 3D Diagrams Explored</span>
-                          <span className="font-mono text-cyan-300">
-                            {progress.diagramsExplored} / {progress.totalDiagrams}
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-cyan-400 rounded-full transition-all duration-500"
-                            style={{
-                              width: `${Math.min(100, Math.round((progress.diagramsExplored / Math.max(1, progress.totalDiagrams)) * 100))}%`
-                            }}
-                          />
-                        </div>
+                    {/* Progress Bar for Each Tab */}
+                    <div className="space-y-2 text-xs pt-1 max-h-80 overflow-y-auto pr-1">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        Progress by Tab (Click to open)
                       </div>
-
-                      <div>
-                        <div className="flex justify-between text-[11px] mb-1">
-                          <span className="text-slate-300">Labeling Quizzes Mastered</span>
-                          <span className="font-mono text-emerald-300">
-                            {progress.quizzesMastered} / {progress.totalDiagrams}
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-emerald-400 rounded-full transition-all duration-500"
-                            style={{
-                              width: `${Math.min(100, Math.round((progress.quizzesMastered / Math.max(1, progress.totalDiagrams)) * 100))}%`
+                      {progress.tabProgress.map((tab) => {
+                        const isCurrent = activeSection === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => {
+                              setActiveSection(tab.id);
+                              setShowProgressDetails(false);
                             }}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-[11px] mb-1">
-                          <span className="text-slate-300">Lab Modules Explored</span>
-                          <span className="font-mono text-indigo-300">
-                            {progress.sectionsVisited} / {progress.totalSections}
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-indigo-400 rounded-full transition-all duration-500"
-                            style={{
-                              width: `${Math.min(100, Math.round((progress.sectionsVisited / Math.max(1, progress.totalSections)) * 100))}%`
-                            }}
-                          />
-                        </div>
-                      </div>
+                            className={`w-full text-left p-2 rounded-xl border transition-all cursor-pointer ${
+                              isCurrent
+                                ? 'bg-slate-800/90 border-cyan-500/40'
+                                : 'bg-slate-950/60 hover:bg-slate-800/60 border-slate-800/80'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between text-[11px] mb-1 gap-2">
+                              <span className="font-semibold text-slate-200 truncate">
+                                {tab.label}
+                              </span>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-[10px] text-slate-400">
+                                  {tab.detail}
+                                </span>
+                                <span className={`font-mono font-bold ${tab.textClass}`}>
+                                  {tab.percent}%
+                                </span>
+                              </div>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800/60">
+                              <div
+                                className={`h-full ${tab.colorClass} rounded-full transition-all duration-500`}
+                                style={{ width: `${Math.min(100, Math.max(0, tab.percent))}%` }}
+                              />
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
 
                     <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">

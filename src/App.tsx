@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Header, WebsiteProgressSummary, AppSectionId } from './components/Header';
+import { Header, WebsiteProgressSummary, AppSectionId, TabProgressItem } from './components/Header';
 import { VisualLearning } from './components/VisualLearning/VisualLearning';
 import { Model3DViewer } from './components/Model3DViewer';
 import { AdvancedLab } from './components/AdvancedLab';
@@ -18,6 +18,7 @@ import { CheckCircle2, ArrowRight } from 'lucide-react';
 const LOCAL_STORAGE_NOTES_KEY = 'learnsphere_student_notes_v1';
 const LEGACY_STORAGE_NOTES_KEY = 'omnilearn_student_notes_v1';
 const VISITED_SECTIONS_STORAGE_KEY = 'learnsphere_visited_sections_v1';
+const TAB_INTERACTIONS_STORAGE_KEY = 'learnsphere_tab_interactions_v1';
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<AppSectionId>('learning');
@@ -33,11 +34,38 @@ export default function App() {
     return ['learning'];
   });
 
+  // Track per-tab interactions for granular per-tab progress bars
+  const [tabInteractions, setTabInteractions] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem(TAB_INTERACTIONS_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { learning: 1 };
+  });
+
+  const recordTabInteraction = useCallback((section: AppSectionId, amount = 1) => {
+    setTabInteractions((prev) => {
+      const next = { ...prev, [section]: (prev[section] || 0) + amount };
+      try {
+        localStorage.setItem(TAB_INTERACTIONS_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     setVisitedSections((prev) => {
       const next = prev.includes(activeSection) ? prev : [...prev, activeSection];
       try {
         localStorage.setItem(VISITED_SECTIONS_STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    setTabInteractions((prev) => {
+      if ((prev[activeSection] || 0) > 0) return prev;
+      const next = { ...prev, [activeSection]: 1 };
+      try {
+        localStorage.setItem(TAB_INTERACTIONS_STORAGE_KEY, JSON.stringify(next));
       } catch {}
       return next;
     });
@@ -137,13 +165,95 @@ export default function App() {
 
   const totalDiagrams = NCERT_DIAGRAMS.length;
   const totalSections = 8;
+
+  const calcTabPercent = (id: AppSectionId, targetInteractions: number) => {
+    const visited = visitedSections.includes(id);
+    const count = tabInteractions[id] || 0;
+    if (!visited && count === 0) return 0;
+    return Math.min(100, Math.round(20 + (Math.min(targetInteractions, count) / targetInteractions) * 80));
+  };
+
+  const visualPercent = Math.min(
+    100,
+    Math.round(
+      (diagramsExplored / Math.max(1, totalDiagrams)) * 65 +
+        (quizzesMastered / Math.max(1, totalDiagrams)) * 35
+    )
+  );
+
+  const notesPercent = Math.min(100, Math.round((notes.length / 8) * 100));
+
+  const tabProgress: TabProgressItem[] = [
+    {
+      id: 'learning',
+      label: '3D Learning',
+      percent: calcTabPercent('learning', 8),
+      detail: `${Math.min(8, tabInteractions.learning || 1)}/8 models explored`,
+      colorClass: 'bg-cyan-400',
+      textClass: 'text-cyan-300'
+    },
+    {
+      id: 'visual_learning',
+      label: 'Visual Learning',
+      percent: visualPercent,
+      detail: `${diagramsExplored}/${totalDiagrams} diagrams · ${quizzesMastered} quizzes`,
+      colorClass: 'bg-sky-400',
+      textClass: 'text-sky-300'
+    },
+    {
+      id: 'atomic_foundation',
+      label: 'Atomic Foundation',
+      percent: calcTabPercent('atomic_foundation', 10),
+      detail: `${Math.min(10, tabInteractions.atomic_foundation || 0)}/10 elements & orbitals`,
+      colorClass: 'bg-violet-400',
+      textClass: 'text-violet-300'
+    },
+    {
+      id: 'advanced_lab',
+      label: 'Advanced 3D Lab',
+      percent: calcTabPercent('advanced_lab', 8),
+      detail: `${Math.min(8, tabInteractions.advanced_lab || 0)}/8 lab setups`,
+      colorClass: 'bg-indigo-400',
+      textClass: 'text-indigo-300'
+    },
+    {
+      id: 'chemistry',
+      label: 'Chemistry Lab',
+      percent: calcTabPercent('chemistry', 6),
+      detail: `${Math.min(6, tabInteractions.chemistry || 0)}/6 reactions run`,
+      colorClass: 'bg-emerald-400',
+      textClass: 'text-emerald-300'
+    },
+    {
+      id: 'physics',
+      label: 'Physics Simulations',
+      percent: calcTabPercent('physics', 6),
+      detail: `${Math.min(6, tabInteractions.physics || 0)}/6 simulations run`,
+      colorClass: 'bg-amber-400',
+      textClass: 'text-amber-300'
+    },
+    {
+      id: 'notes',
+      label: 'Notes',
+      percent: notesPercent,
+      detail: `${notes.length} study notes saved`,
+      colorClass: 'bg-teal-400',
+      textClass: 'text-teal-300'
+    },
+    {
+      id: 'study_buddy',
+      label: 'Ask Lumi (Beta) 🦉',
+      percent: calcTabPercent('study_buddy', 6),
+      detail: `${Math.max(0, (tabInteractions.study_buddy || 0) - 1)} Q&A interactions`,
+      colorClass: 'bg-fuchsia-400',
+      textClass: 'text-fuchsia-300'
+    }
+  ];
+
   const overallPercent = Math.min(
     100,
     Math.round(
-      (diagramsExplored / totalDiagrams) * 45 +
-        (quizzesMastered / totalDiagrams) * 25 +
-        (visitedSections.length / totalSections) * 20 +
-        Math.min(1, notes.length / 5) * 10
+      tabProgress.reduce((sum, item) => sum + item.percent, 0) / tabProgress.length
     )
   );
 
@@ -154,7 +264,8 @@ export default function App() {
     quizzesMastered,
     sectionsVisited: visitedSections.length,
     totalSections,
-    notesCount: notes.length
+    notesCount: notes.length,
+    tabProgress
   };
 
   return (
@@ -170,7 +281,15 @@ export default function App() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6">
+      <main
+        className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6"
+        onClick={(e) => {
+          const target = e.target as HTMLElement | null;
+          if (target && target.closest('button, input, select, [role="button"]')) {
+            recordTabInteraction(activeSection, 1);
+          }
+        }}
+      >
         <ErrorBoundary
           key={activeSection}
           fallbackTitle={`Error in ${
