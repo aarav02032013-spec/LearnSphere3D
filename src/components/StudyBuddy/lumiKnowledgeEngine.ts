@@ -29,14 +29,14 @@ const CORE_STEM_TOPICS: TopicEntry[] = [
     subject: 'Physics',
     explain: `## Electric Motor & Fleming's Left-Hand Rule
 
-An **Electric Motor** is a device that converts **electrical energy into mechanical rotational energy** using the magnetic force acting on a current-carrying conductor placed in a magnetic field.
+An **Electric Motor** converts **electrical energy into mechanical rotational energy** using the magnetic force acting on a current-carrying conductor in a magnetic field.
 
 ### How it Works Step-by-Step:
 1. **Current in the Armature Coil**: Conventional current \`I\` from the DC battery enters the rectangular copper armature loop through the stationary **carbon brushes** and **split-ring commutator**.
 2. **Opposing Lorentz Forces (\`F = I · L × B\`)**:
    - The magnetic field \`B\` points horizontally from the **North (N) pole** to the **South (S) pole**.
-   - On the **left arm**, current flows toward the back while \`B\` points right-to-left, producing an **upward magnetic force \`F\`**.
-   - On the **right arm**, current flows toward the front, producing a **downward magnetic force \`F\`**.
+   - On the **left arm**, current flows perpendicular to \`B\`, producing an **upward magnetic force \`F\`**.
+   - On the **right arm**, current flows in the opposite direction, producing a **downward magnetic force \`F\`**.
 3. **Continuous Clockwise Torque**: These two equal and opposite forces form a **turning couple (torque)** that rotates the coil.
 4. **Role of the Split-Ring Commutator**: Every half-rotation (\`180°\`), the two golden half-rings swap contact with the carbon brushes, reversing current direction in the coil arms so the torque stays in the **same clockwise direction**!`,
     solver: `### Key Formulas for an Electric Motor:
@@ -78,8 +78,8 @@ Digestion is the step-by-step breakdown of complex, insoluble food molecules int
 5. **Large Intestine (Colon)**:
    - Absorbs excess water and electrolytes before egestion.`,
     exam: `### High-Yield NCERT Exam Points (Class 10 Life Processes & Class 11):
-- **Site of Complete Digestion**: **Small Intestine** (specifically the duodenum and jejunum/ileum).
-- **Why Bile has NO Enzymes yet is Essential**: Bile salts emulsify large fat globules into micelle droplets so lipase can act efficiently, and bile neutralizes acidic chyme from the stomach so pancreatic enzymes can work.
+- **Site of Complete Digestion**: **Small Intestine** (duodenum and ileum).
+- **Why Bile has NO Enzymes yet is Essential**: Bile salts emulsify large fat globules into tiny droplets so lipase can act efficiently, and bile neutralizes acidic chyme from the stomach so pancreatic enzymes can work.
 - **Herbivores vs. Carnivores**: Herbivores have a much **longer small intestine** because plant cellulose takes much longer to digest than meat.`,
     memoryTrick: `Lumi's Memory Trick: Remember Pancreatic Enzymes with **T-A-L**: **T**rypsin (Proteins), **A**mylase (Starch/Carbs), **L**ipase (Lipids/Fats)!`,
     quizQuestion: `**Quick Quiz on Human Digestion!** 🦉
@@ -105,7 +105,7 @@ All periodic table trends are governed by two competing forces: **Effective Nucl
 - **Ionization Energy DECREASES**: Outer electrons are farther from the nucleus and easier to remove.
 - **Electronegativity DECREASES**: Larger atomic size weakens attraction for shared electron pairs.`,
     exam: `### High-Yield Exceptions Asked in Exams:
-- **Nitrogen vs. Oxygen Ionization Energy**: **Nitrogen (\`2p³\`)** has a higher first ionization enthalpy than **Oxygen (\`2p⁴\`)** because Nitrogen has a extra-stable **half-filled \`2p\` subshell**.
+- **Nitrogen vs. Oxygen Ionization Energy**: **Nitrogen (\`2p³\`)** has a higher first ionization enthalpy than **Oxygen (\`2p⁴\`)** because Nitrogen has an extra-stable **half-filled \`2p\` subshell**.
 - **Chlorine vs. Fluorine Electron Gain Enthalpy**: **Chlorine (\`Cl\`)** has a more negative electron gain enthalpy than **Fluorine (\`F\`)** because Fluorine's tiny \`2p\` subshell experiences strong inter-electronic repulsion.`,
     memoryTrick: `Lumi's Memory Trick: Use **F-R-I-E-N-D**: **F**luorine (top-right corner) is the king of **I**onization Energy & **E**lectronegativity, while **Fr**ancium/Cesium (bottom-left corner) is the giant of **R**adius!`,
     quizQuestion: `**Quick Periodic Table Quiz!** 🦉
@@ -139,7 +139,7 @@ Which specific part of the nephron is responsible for reabsorbing nearly **100% 
     quizExplanation: `The **Proximal Convoluted Tubule (PCT)** is lined with brush-border cuboidal epithelium rich in mitochondria, allowing it to actively reabsorb 100% of filtered glucose and amino acids!`
   },
   {
-    keywords: ['acid', 'base', 'salt', 'ph', 'indicator', 'neutralization', 'arrhenius', 'bronsted', 'molarity', 'titration'],
+    keywords: ['acid', 'base', 'salt', 'ph', 'indicator', 'neutralization', 'arrhenius', 'bronsted', 'molarity', 'titration', 'litmus'],
     title: 'Acids, Bases, Salts & pH Calculations',
     subject: 'Chemistry',
     explain: `## Acids, Bases, Salts & The pH Scale
@@ -193,6 +193,103 @@ Why does the **Left Ventricle** have a much thicker muscular wall than the Right
     quizExplanation: `The **Left Ventricle** has the thickest muscular wall (myocardium) because it has to pump oxygenated blood under **high pressure** through the aorta to reach the **entire body**!`
   },
   {
+    keywords: ['photosynthesis', 'chloroplast', 'chlorophyll', 'stomata', 'thylakoid', 'stroma', 'calvin', 'light reaction', 'dark reaction'],
+    title: 'Photosynthesis, Stomata & Chloroplast Structure',
+    subject: 'Biology',
+    explain: `## Photosynthesis & Chloroplast Function
+
+**Photosynthesis** is the process by which autotrophs (green plants) synthesize glucose from carbon dioxide and water using sunlight and **chlorophyll**:
+- **Balanced Equation**: \`6CO2 + 12H2O --(Sunlight / Chlorophyll)--> C6H12O6 + 6O2 + 6H2O\`
+
+### The 3 Key Events of Photosynthesis (NCERT Class 10):
+1. **Absorption of light energy** by chlorophyll pigments in the **thylakoid membranes (grana)**.
+2. **Conversion of light energy into chemical energy** (\`ATP\` and \`NADPH\`) and **photolysis (splitting) of water** (\`2H2O → 4H+ + 4e- + O2↑\`).
+3. **Reduction of Carbon Dioxide (\`CO2\`)** into carbohydrates (glucose) in the **stroma** (Calvin Cycle / Dark Reaction).`,
+    exam: `### High-Yield Exam Points:
+- **Source of Oxygen (\`O2\`) released**: Comes from the **splitting of water (\`H2O\`)**, NOT from \`CO2\`.
+- **Guard Cells & Stomata**: When water flows into guard cells, they become **turgid** and bow apart, **opening** the stomatal pore; when they lose water, they become **flaccid** and close the pore.`,
+    memoryTrick: `Lumi's Memory Trick: **G-L / S-D** — **G**rana runs the **L**ight reaction; **S**troma runs the **D**ark (Calvin) reaction!`,
+    quizQuestion: `**Quick Photosynthesis Quiz!** 🦉
+During photosynthesis, does the oxygen gas (\`O2\`) released into the atmosphere come from Carbon Dioxide (\`CO2\`) or from Water (\`H2O\`)?`,
+    quizAnswerKey: ['water', 'h2o', 'photolysis', 'splitting of water'],
+    quizExplanation: `The released oxygen gas (\`O2\`) comes 100% from the **photolysis (light-driven splitting) of water (\`H2O\`)** in the thylakoid membrane!`
+  },
+  {
+    keywords: ['neuron', 'synapse', 'reflex', 'brain', 'cerebrum', 'cerebellum', 'medulla', 'nervous', 'axon', 'dendrite'],
+    title: 'Neuron, Reflex Arc & Human Brain (Control & Coordination)',
+    subject: 'Biology',
+    explain: `## Nervous System: Neuron, Synapse & Reflex Arc
+
+### 1. Pathway of a Nerve Impulse in a Neuron:
+- **Dendrites** (detect stimulus) → **Cell Body (Cyton)** → **Axon** (electrical impulse travels along myelin sheath) → **Nerve Ending (Axon Terminal)** → **Synapse** (neurotransmitters like *acetylcholine* cross the synaptic cleft to the next dendrite).
+
+### 2. Reflex Arc (Rapid Automatic Response):
+- \`Receptor (Skin) → Sensory Neuron → Spinal Cord (Relay Neuron) → Motor Neuron → Effector (Muscle)\`.
+- Reflex arcs are processed in the **Spinal Cord** so the body can pull away from danger (like a hot pan) **before** the slow thinking part of the brain even finishes processing!
+
+### 3. Major Parts of the Human Brain:
+- **Forebrain (Cerebrum)**: Main thinking part; memory, voluntary actions, sight, hearing, hunger.
+- **Midbrain**: Controls reflex movements of head, neck, and eye muscles.
+- **Hindbrain**:
+  - **Cerebellum**: Posture, balance, and precision of voluntary actions (walking, riding a bicycle).
+  - **Medulla**: Involuntary actions (blood pressure, salivation, vomiting, heartbeat).
+  - **Pons**: Regulates respiration.`,
+    exam: `### High-Yield Exam Distinction:
+- **Cerebrum vs. Cerebellum**: **Cerebrum** (Forebrain) handles conscious intelligence and memory; **Cerebellum** (Hindbrain) maintains **body balance and posture**.`,
+    memoryTrick: `Lumi's Memory Trick: **Cere-BELL-um = BALANCE** (both have 'B' and 'L'!) and **Medulla = Automatic Must-Do's** (heartbeat, breathing, BP)!`,
+    quizQuestion: `**Quick Nervous System Quiz!** 🦉
+Which part of the **Hindbrain** is responsible for maintaining your **posture and balance** when riding a bicycle?`,
+    quizAnswerKey: ['cerebellum', 'hindbrain'],
+    quizExplanation: `The **Cerebellum** in the hindbrain controls posture, equilibrium, and fine motor coordination!`
+  },
+  {
+    keywords: ['mirror', 'lens', 'refraction', 'reflection', 'focal', 'concave', 'convex', 'magnification', 'snell', 'prism', 'dispersion', 'myopia', 'hypermetropia'],
+    title: 'Ray Optics: Mirrors, Lenses, Prism & Human Eye Defects',
+    subject: 'Physics',
+    explain: `## Ray Optics: Mirrors, Lenses & Dispersion
+
+### 1. Core Formulas (with Cartesian Sign Convention):
+- **Mirror Formula**: \`1/f = 1/v + 1/u\`  |  Magnification: \`m = -v/u = h'/h\`
+- **Lens Formula**: \`1/f = 1/v - 1/u\`  |  Magnification: \`m = +v/u = h'/h\`
+- **Power of a Lens**: \`P = 1 / f(in meters)\` — measured in **Dioptre (D)**.
+- **Snell's Law of Refraction**: \`n1 · sin(i) = n2 · sin(r)\`.
+
+### 2. Sign Convention Quick Rules:
+- Object distance \`u\` is **always negative (\`-\`)**.
+- Focal length \`f\` of a **Concave Mirror / Concave Lens** is **negative (\`-\`)**.
+- Focal length \`f\` of a **Convex Mirror / Convex Lens** is **positive (\`+\`)**.`,
+    exam: `### Human Eye Defects & Corrections:
+- **Myopia (Near-sightedness)**: Image forms *in front of* the retina → Corrected using a **Concave (Diverging) Lens** of negative power.
+- **Hypermetropia (Far-sightedness)**: Image forms *behind* the retina → Corrected using a **Convex (Converging) Lens** of positive power.`,
+    memoryTrick: `Lumi's Memory Trick: **M-C-N**: **M**yopia is fixed by a **C**oncave lens (**N**egative power)! And for prism dispersion: **VIBGYOR** — **V**iolet bends the most (shortest wavelength), **R**ed bends the least (longest wavelength)!`,
+    quizQuestion: `**Quick Optics Quiz!** 🦉
+A student can read a book held close to their eyes clearly, but cannot see the classroom blackboard far away. Name the eye defect and the type of lens needed to correct it!`,
+    quizAnswerKey: ['myopia', 'near', 'short', 'concave', 'diverging'],
+    quizExplanation: `That defect is **Myopia (Near-sightedness)**, where light focuses in front of the retina. It is corrected using a **Concave (diverging) lens** of suitable focal length!`
+  },
+  {
+    keywords: ['redox', 'oxidation', 'reduction', 'reaction', 'displacement', 'decomposition', 'combination', 'exothermic', 'endothermic', 'rancidity', 'corrosion'],
+    title: 'Chemical Reactions, Equations & Redox Processes',
+    subject: 'Chemistry',
+    explain: `## Types of Chemical Reactions & Redox Mastery
+
+1. **Combination Reaction**: Two or more reactants combine to form a single product (\`CaO + H2O → Ca(OH)2 + Heat\`).
+2. **Decomposition Reaction**: A single reactant breaks down into simpler products via heat (**Thermal**), light (**Photolytic**, e.g. \`2AgCl → 2Ag + Cl2\`), or electricity (**Electrolytic**).
+3. **Displacement Reaction**: A more reactive metal displaces a less reactive metal from its salt solution (\`Fe + CuSO4 → FeSO4 + Cu\`).
+4. **Double Displacement (Precipitation)**: Exchange of ions between two aqueous reactants (\`Na2SO4 + BaCl2 → BaSO4↓ (white ppt) + 2NaCl\`).
+5. **Redox (Oxidation–Reduction)**:
+   - **Oxidation**: Gain of Oxygen OR Loss of Hydrogen OR Loss of Electrons.
+   - **Reduction**: Loss of Oxygen OR Gain of Hydrogen OR Gain of Electrons.`,
+    exam: `### High-Yield Exam Points:
+- **Oxidizing Agent**: The substance that *gets reduced* (gives oxygen / accepts electrons).
+- **Reducing Agent**: The substance that *gets oxidized* (removes oxygen / donates electrons).`,
+    memoryTrick: `Lumi's Memory Trick: **OIL RIG** — **O**xidation **I**s **L**oss of electrons; **R**eduction **I**s **G**ain of electrons!`,
+    quizQuestion: `**Quick Redox Quiz!** 🦉
+In the reaction \`CuO + H2 → Cu + H2O\`, which substance is getting **oxidized** and which substance is getting **reduced**?`,
+    quizAnswerKey: ['h2', 'hydrogen', 'cuo', 'copper'],
+    quizExplanation: `**Hydrogen (\`H2\`)** gains oxygen to become \`H2O\`, so **\`H2\` is oxidized** (and acts as the reducing agent). **Copper(II) oxide (\`CuO\`)** loses oxygen to become \`Cu\`, so **\`CuO\` is reduced**!`
+  },
+  {
     keywords: ['study', 'pomodoro', 'schedule', 'routine', 'exam', 'revision', 'memorize', 'focus', 'procrastinat', 'time table', 'timetable', 'active recall'],
     title: 'High-Retention Study Routine & Active Recall Coach',
     subject: 'Study Tips',
@@ -224,11 +321,11 @@ What is the **Active Recall (Blurting) Method**, and why is it much more effecti
   }
 ];
 
-function trySolvePhysicsOrChemNumerical(message: string): string | null {
+function trySolveNumericalProblem(message: string): string | null {
   const lower = message.toLowerCase();
 
   // 1. Projectile Motion Solver
-  if (lower.includes('projectile') || (lower.includes('angle') && (lower.includes('m/s') || lower.includes('velocity') || lower.includes('speed')))) {
+  if (lower.includes('projectile') || (lower.includes('angle') && (lower.includes('m/s') || lower.includes('velocity') || lower.includes('speed') || lower.includes('launch')))) {
     const nums = message.match(/\d+(\.\d+)?/g)?.map(Number) || [];
     const u = nums[0] || 20;
     const thetaDeg = nums[1] || 30;
@@ -295,12 +392,52 @@ Lumi's Study Tip: Horizontal range \`R\` is always **maximum** when the launch a
 Lumi's Memory Trick: Picture the **V-I-R Triangle** with \`V\` on top and \`I · R\` at the base — cover the unknown quantity with your finger to see the exact formula!`;
   }
 
+  // 3. Quadratic Equation Solver (e.g. x^2 - 5x + 6 = 0)
+  const quadMatch = message.replace(/\s+/g, '').match(/([+-]?\d*)x\^?2([+-]\d*)x([+-]\d+)=0/i);
+  if (quadMatch || lower.includes('quadratic')) {
+    const a = quadMatch ? (quadMatch[1] === '' || quadMatch[1] === '+' ? 1 : quadMatch[1] === '-' ? -1 : parseFloat(quadMatch[1])) : 1;
+    const b = quadMatch ? (quadMatch[2] === '+' ? 1 : quadMatch[2] === '-' ? -1 : parseFloat(quadMatch[2])) : -5;
+    const c = quadMatch ? parseFloat(quadMatch[3]) : 6;
+    const D = b * b - 4 * a * c;
+
+    return `## Step-by-Step Quadratic Equation Solution
+
+### 1. Standard Form (\`ax² + bx + c = 0\`):
+- Given: \`a = ${a}\`, \`b = ${b}\`, \`c = ${c}\`
+
+### 2. Discriminant (\`D = b² - 4ac\`):
+- \`D = (${b})² - 4(${a})(${c}) = ${b * b} - ${4 * a * c} = ${D}\`
+
+### 3. Roots by Quadratic Formula (\`x = (-b ± √D) / (2a)\`):
+${
+  D >= 0
+    ? `- \`x₁ = (${-b} + √${D}) / ${2 * a} = ${((-b + Math.sqrt(D)) / (2 * a)).toFixed(2)}\`
+- \`x₂ = (${-b} - √${D}) / ${2 * a} = ${((-b - Math.sqrt(D)) / (2 * a)).toFixed(2)}\``
+    : `- Since \`D < 0\`, the roots are complex conjugates: \`x = ${(-b / (2 * a)).toFixed(2)} ± ${(Math.sqrt(-D) / (2 * a)).toFixed(2)}i\``
+}
+
+Lumi's Study Tip: Always check the sign of the discriminant \`D = b² - 4ac\` first: \`D > 0\` gives 2 distinct real roots, \`D = 0\` gives 2 equal real roots, and \`D < 0\` gives no real roots!`;
+  }
+
   return null;
 }
 
 export function generateLocalLumiResponse(req: LumiLocalRequest): string {
   const { message, history, subject, gradeBand, studyMode } = req;
   const lower = message.toLowerCase().trim();
+
+  // 0. Friendly conversational greetings
+  if (/^(hi|hello|hey|good morning|good evening|namaste|who are you|what is your name|help)\b/i.test(lower) && lower.length < 35) {
+    return `Hi there! I'm **Lumi** 🦉✨, your pocket study buddy here in **LearnSphere 3D**!
+
+I can help you with **${subject}** (${gradeBand}) in 4 ways:
+- **Explain Simply**: Ask me about any NCERT concept or 3D diagram (e.g., *"Explain the Electric Motor"*, *"How does the Human Digestive System work?"*, *"Periodic Table trends"*).
+- **Step-by-Step Solver**: Paste a Physics, Chemistry, or Math problem (e.g., *Projectile Motion*, *Ohm's Law*, *pH calculations*, *Quadratic Equations*).
+- **Exam & NCERT Coach**: Get high-yield definitions, board exam tips, and memory tricks.
+- **Quiz Me!**: Ask me to quiz you on any chapter!
+
+What topic should we dive into first?`;
+  }
 
   // 1. Check if the previous message from Lumi was a Quiz question and the user is answering it!
   const lastModelMsg = [...history].reverse().find((m) => m.role === 'model');
@@ -325,22 +462,13 @@ Would you like another quiz question on **${matchedQuizTopic.subject}**, or shou
     }
   }
 
-  // 2. Check if user is asking for a numerical calculation in Solver mode (or with numbers)
-  const solvedNumerical = trySolvePhysicsOrChemNumerical(message);
-  if (solvedNumerical && (studyMode === 'solver' || /\d/.test(message))) {
+  // 2. Check if user is asking for a numerical calculation
+  const solvedNumerical = trySolveNumericalProblem(message);
+  if (solvedNumerical) {
     return solvedNumerical;
   }
 
-  // 3. Search NCERT 3D Diagrams database for direct match
-  const matchedDiagram = NCERT_DIAGRAMS.find((diag) => {
-    const titleWords = diag.title.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
-    return (
-      lower.includes(diag.title.toLowerCase()) ||
-      titleWords.some((w) => lower.includes(w) && !['human', 'system', 'structure', 'diagram', 'model'].includes(w))
-    );
-  });
-
-  // 4. Search Core STEM Topics
+  // 3. Search Core STEM Topics
   const matchedTopic = CORE_STEM_TOPICS.find((topic) =>
     topic.keywords.some((kw) => lower.includes(kw))
   );
@@ -357,6 +485,15 @@ Would you like another quiz question on **${matchedQuizTopic.subject}**, or shou
     }
     return `${matchedTopic.explain}\n\n${matchedTopic.exam}\n\n${matchedTopic.memoryTrick}`;
   }
+
+  // 4. Search NCERT 3D Diagrams database for direct match
+  const matchedDiagram = NCERT_DIAGRAMS.find((diag) => {
+    const titleWords = diag.title.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+    return (
+      lower.includes(diag.title.toLowerCase()) ||
+      titleWords.some((w) => lower.includes(w) && !['human', 'system', 'structure', 'diagram', 'model'].includes(w))
+    );
+  });
 
   if (matchedDiagram) {
     const partsList = matchedDiagram.pinpoints
@@ -401,13 +538,13 @@ Lumi's Study Tip: You can also view and edit this study guide anytime in your **
   }
 
   // 7. Helpful structured response for any other study question
-  return `## Lumi's Study Breakdown: "${message.slice(0, 68)}${message.length > 68 ? '...' : ''}" (${subject} · ${gradeBand})
+  return `## Lumi's Study Guide: "${message.slice(0, 68)}${message.length > 68 ? '...' : ''}" (${subject} · ${gradeBand})
 
-Here is a structured framework to master this topic for **${gradeBand}**:
+Here is a step-by-step breakdown to master this concept for **${gradeBand}**:
 
 ### 1. Core Concept & First Principles
 - Start by identifying the **fundamental definition** and the physical, chemical, or biological mechanism driving the process.
-- Connect the concept to its visual structure—check the **Visual Learning** or **3D Learning** tabs to inspect the interactive 3D model and its labeled pinpoints.
+- Connect the concept to its visual structure—open the **Visual Learning** or **3D Learning** tabs to inspect the interactive 3D model and its labeled pinpoints.
 
 ### 2. Key Formulas / Processes to Remember
 - **Physics**: State the governing law (e.g., \`F = m · a\`, \`V = I · R\`, \`F = I · L × B\`, or \`1/f = 1/v - 1/u\`) and always convert quantities into **SI units** before substituting.
@@ -418,5 +555,5 @@ Here is a structured framework to master this topic for **${gradeBand}**:
 - Write a crisp 2-line definition using textbook keywords.
 - Include a neat labeled diagram or balanced equation wherever applicable.
 
-Lumi's Study Tip: Try asking me about specific topics like **"Electric Motor & Fleming's Left-Hand Rule"**, **"Human Digestive System"**, **"Periodic Table Trends"**, **"Human Nephron"**, **"Acids, Bases & pH"**, or paste a **Projectile Motion / Ohm's Law numerical**!`;
+Lumi's Study Tip: Ask me about any specific topic like **"Electric Motor & Fleming's Left-Hand Rule"**, **"Human Digestive System"**, **"Periodic Table Trends"**, **"Human Nephron"**, **"Photosynthesis"**, **"Human Brain & Reflex Arc"**, **"Ray Optics & Lenses"**, **"Acids, Bases & pH"**, or paste a **Projectile Motion / Ohm's Law / Quadratic Equation** problem!`;
 }

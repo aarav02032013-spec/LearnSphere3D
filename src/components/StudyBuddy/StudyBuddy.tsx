@@ -38,7 +38,7 @@ interface StudyBuddyProps {
   ) => void;
 }
 
-const STORAGE_KEY = 'learnsphere_lumi_chat_v1';
+const STORAGE_KEY = 'learnsphere_lumi_chat_v2';
 
 const INITIAL_WELCOME_MESSAGE: StudyChatMessage = {
   id: 'lumi_welcome_1',
@@ -383,40 +383,49 @@ export const StudyBuddy: React.FC<StudyBuddyProps> = ({ onAddNote }) => {
 
     try {
       let replyText: string | null = null;
+      const isStaticGitHubPages =
+        typeof window !== 'undefined' &&
+        (window.location.hostname.includes('github.io') ||
+          window.location.protocol === 'file:');
 
-      try {
-        const response = await fetch('/api/study-buddy/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json'
-          },
-          body: JSON.stringify({
-            message: trimmed,
-            history: historyPayload,
-            subject,
-            gradeBand,
-            studyMode: activeMode
-          })
-        });
+      if (!isStaticGitHubPages) {
+        try {
+          const response = await fetch('/api/study-buddy/chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json'
+            },
+            body: JSON.stringify({
+              message: trimmed,
+              history: historyPayload,
+              subject,
+              gradeBand,
+              studyMode: activeMode
+            })
+          });
 
-        const contentType = response.headers.get('content-type') || '';
-        const rawText = await response.text();
+          const contentType = (response.headers.get('content-type') || '').toLowerCase();
+          const rawText = await response.text();
+          const trimmedRaw = rawText.trim();
 
-        // Only parse JSON if the response is actually JSON (prevents GitHub Pages 404/405 HTML parse error)
-        if (contentType.includes('application/json') && !rawText.trim().startsWith('<')) {
-          const data = JSON.parse(rawText);
-          if (response.ok && data?.reply) {
-            replyText = data.reply;
+          if (
+            response.ok &&
+            contentType.includes('application/json') &&
+            trimmedRaw.startsWith('{')
+          ) {
+            const data = JSON.parse(trimmedRaw);
+            if (data && typeof data.reply === 'string' && data.reply.trim()) {
+              replyText = data.reply;
+            }
           }
+        } catch {
+          // Static host or offline — fall through to Lumi's built-in NCERT & STEM engine
         }
-      } catch {
-        // Static hosting (e.g., GitHub Pages) or offline mode — seamlessly use Lumi's built-in NCERT & STEM engine
       }
 
       if (!replyText) {
-        // Brief natural thinking pause for static/offline mode
-        await new Promise((resolve) => setTimeout(resolve, 380));
+        await new Promise((resolve) => setTimeout(resolve, 320));
         replyText = generateLocalLumiResponse({
           message: trimmed,
           history: historyPayload,
@@ -436,13 +445,25 @@ export const StudyBuddy: React.FC<StudyBuddyProps> = ({ onAddNote }) => {
       };
 
       setMessages((prev) => [...prev, lumiMsg]);
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : 'Could not reach Lumi right now. Please try again.';
-      setErrorMsg(msg);
-      setLastFailedPrompt(trimmed);
+    } catch {
+      const fallbackText = generateLocalLumiResponse({
+        message: trimmed,
+        history: historyPayload,
+        subject,
+        gradeBand,
+        studyMode: activeMode
+      });
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `lumi_${Date.now()}`,
+          role: 'model',
+          text: fallbackText,
+          timestamp: Date.now(),
+          subject,
+          mode: modeLabel
+        }
+      ]);
     } finally {
       setIsLoading(false);
     }

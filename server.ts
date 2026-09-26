@@ -3,6 +3,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import { generateLocalLumiResponse } from './src/components/StudyBuddy/lumiKnowledgeEngine';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,14 +99,28 @@ Formatting guidelines:
     const replyText = response.text || "I'm here and ready to help you study! Could you rephrase that question?";
     res.json({ reply: replyText });
   } catch (error: unknown) {
-    console.error('Error in /api/study-buddy/chat:', error);
-    const errMessage =
-      error instanceof Error
-        ? error.message
-        : 'An unexpected error occurred while connecting to Lumi.';
-    res.status(500).json({
-      error: errMessage,
+    console.warn('Gemini API unavailable in /api/study-buddy/chat, using built-in Lumi knowledge engine:', error);
+    const {
+      message = '',
+      history = [],
+      subject = 'All Subjects',
+      gradeBand = 'Classes 9–10',
+      studyMode = 'explain',
+    } = (req.body || {}) as {
+      message?: string;
+      history?: ChatHistoryItem[];
+      subject?: string;
+      gradeBand?: string;
+      studyMode?: 'explain' | 'solver' | 'exam' | 'quiz';
+    };
+    const fallbackReply = generateLocalLumiResponse({
+      message: String(message),
+      history: Array.isArray(history) ? history : [],
+      subject,
+      gradeBand,
+      studyMode,
     });
+    res.json({ reply: fallbackReply });
   }
 });
 
