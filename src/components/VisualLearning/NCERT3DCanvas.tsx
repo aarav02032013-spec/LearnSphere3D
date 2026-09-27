@@ -4114,9 +4114,9 @@ function updateNCERTModelAnimation(renderType: string, group: THREE.Group, time:
     }
   } else if (renderType === 'ncert_circuit') {
     const bulb = group.getObjectByName('glowing_bulb');
-    if (bulb) {
-      const glow = 0.85 + 0.15 * Math.sin(time * 6);
-      bulb.scale.set(glow, glow, glow);
+    if (bulb && bulb instanceof THREE.Mesh && bulb.material instanceof THREE.MeshStandardMaterial) {
+      bulb.scale.set(1, 1, 1);
+      bulb.material.emissiveIntensity = 0.75 + 0.1 * Math.sin(time * 3);
     }
   } else if (renderType === 'ncert_flame') {
     const flame = group.getObjectByName('flickering_flame');
