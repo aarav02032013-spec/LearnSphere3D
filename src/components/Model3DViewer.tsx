@@ -27,7 +27,7 @@ export const Model3DViewer: React.FC<Model3DViewerProps> = ({
   onAddNote
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<'All' | 'Biology' | 'Mathematics'>('All');
-  const [activeModelId, setActiveModelId] = useState<string>('plant_cell');
+  const [activeModelId, setActiveModelId] = useState<string>('human_skeleton');
   const [selectedPin, setSelectedPin] = useState<Pinpoint | null>(null);
   const [explodeFactor, setExplodeFactor] = useState<number>(0);
   const [wireframe, setWireframe] = useState<boolean>(false);

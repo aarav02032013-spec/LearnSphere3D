@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Pinpoint } from '../types';
+import {
+  buildHumanSkeleton3D,
+  resolveSkeletonRegionFromPoint
+} from './VisualLearning/humanSkeletonBuilder';
 
 export interface PartInfo {
   name: string;
@@ -317,6 +321,21 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
     }
   }, [renderType, wireframe, xray, explodeFactor]);
 
+  // Orient camera & rootGroup cleanly when switching between models
+  useEffect(() => {
+    if (rootGroupRef.current && cameraRef.current) {
+      if (renderType === 'skeleton') {
+        rootGroupRef.current.rotation.set(0.02, 0, 0);
+        cameraRef.current.position.set(0, 0.05, 4.85);
+        cameraRef.current.lookAt(0, 0, 0);
+      } else {
+        rootGroupRef.current.rotation.set(0.25, -0.35, 0);
+        cameraRef.current.position.set(0, 1.8, 4.4);
+        cameraRef.current.lookAt(0, 0, 0);
+      }
+    }
+  }, [renderType]);
+
   // Update pins on pinpoint selection changes
   useEffect(() => {
     try {
@@ -409,11 +428,13 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       const modelHits = raycasterRef.current.intersectObjects(modelGroupRef.current.children, true);
       if (modelHits.length > 0) {
         let foundPartObj: THREE.Object3D | null = null;
+        let hitPoint: THREE.Vector3 | null = null;
         for (const hit of modelHits) {
           let curr: THREE.Object3D | null = hit.object;
           while (curr && curr !== modelGroupRef.current) {
             if (curr.userData?.partInfo) {
               foundPartObj = curr;
+              hitPoint = hit.point;
               break;
             }
             curr = curr.parent;
@@ -427,8 +448,13 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
             currentHoveredObjRef.current = foundPartObj;
             highlightObject(foundPartObj);
           }
+          let partInfo = foundPartObj.userData.partInfo;
+          if (foundPartObj.userData.isSkeletonGLB && hitPoint && modelGroupRef.current) {
+            const localPt = modelGroupRef.current.worldToLocal(hitPoint.clone());
+            partInfo = resolveSkeletonRegionFromPoint(localPt.x, localPt.y);
+          }
           setHoveredTooltip({
-            ...foundPartObj.userData.partInfo,
+            ...partInfo,
             screenX: clientX - rect.left,
             screenY: clientY - rect.top
           });
@@ -511,7 +537,12 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
           let curr: THREE.Object3D | null = hit.object;
           while (curr && curr !== modelGroupRef.current) {
             if (curr.userData?.partInfo?.pinId) {
-              const pin = pinpoints.find((p) => p.id === curr!.userData.partInfo.pinId);
+              let targetPinId = curr.userData.partInfo.pinId;
+              if (curr.userData.isSkeletonGLB && modelGroupRef.current) {
+                const localPt = modelGroupRef.current.worldToLocal(hit.point.clone());
+                targetPinId = resolveSkeletonRegionFromPoint(localPt.x, localPt.y).pinId;
+              }
+              const pin = pinpoints.find((p) => p.id === targetPinId);
               if (pin) {
                 onSelectPin(pin);
                 return;
@@ -533,10 +564,14 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({
       e.preventDefault();
       e.stopPropagation();
       try {
-        if (!cameraRef.current) return;
+        const cam = cameraRef.current;
+        if (!cam) return;
         const zoomDelta = e.deltaY * 0.003;
-        if (Number.isFinite(zoomDelta)) {
-          cameraRef.current.position.z = Math.max(1.8, Math.min(8.5, cameraRef.current.position.z + zoomDelta));
+        const currentDist = cam.position.length();
+        if (Number.isFinite(zoomDelta) && currentDist > 0.001) {
+          const nextDist = Math.max(1.8, Math.min(8.5, currentDist + zoomDelta));
+          cam.position.setLength(nextDist);
+          cam.lookAt(0, 0, 0);
         }
       } catch (err) {
         console.warn('Wheel event error:', err);
@@ -650,7 +685,9 @@ function highlightObject(rootObj: THREE.Object3D) {
               const clone = m.clone();
               if ('emissive' in clone && clone.emissive) {
                 clone.emissive.setHex(0x38bdf8);
-                clone.emissiveIntensity = Math.max((m.emissiveIntensity || 0) + 0.75, 1.0);
+                clone.emissiveIntensity =
+                  obj.userData?.__hoverEmissiveIntensity ??
+                  Math.max((m.emissiveIntensity || 0) + 0.75, 1.0);
               } else if ('color' in clone && clone.color) {
                 clone.color.setHex(0x38bdf8);
               }
@@ -660,7 +697,9 @@ function highlightObject(rootObj: THREE.Object3D) {
             const clone = obj.material.clone();
             if ('emissive' in clone && clone.emissive) {
               clone.emissive.setHex(0x38bdf8);
-              clone.emissiveIntensity = Math.max((obj.material.emissiveIntensity || 0) + 0.75, 1.0);
+              clone.emissiveIntensity =
+                obj.userData?.__hoverEmissiveIntensity ??
+                Math.max((obj.material.emissiveIntensity || 0) + 0.75, 1.0);
             } else if ('color' in clone && clone.color) {
               clone.color.setHex(0x38bdf8);
             }
@@ -710,7 +749,7 @@ function clearGroup(group: THREE.Group) {
       const child = group.children[0];
       group.remove(child);
       child.traverse((obj: any) => {
-        if (obj && obj.geometry) {
+        if (obj && obj.geometry && !obj.userData?.__preserveGeometry) {
           try {
             obj.geometry.dispose();
           } catch {}
@@ -783,6 +822,9 @@ function buildModel(
   opts: { wireframe: boolean; xray: boolean; explodeFactor: number }
 ) {
   switch (renderType) {
+    case 'skeleton':
+      buildHumanSkeleton3D(group, opts);
+      break;
     case 'dna':
       buildDNAModel(group, opts);
       break;

@@ -22,6 +22,83 @@ export interface NCERTDiagramItem {
 }
 
 export const NCERT_DIAGRAMS: NCERTDiagramItem[] = [
+  {
+    id: 'human_skeleton_ncert',
+    title: 'Human Skeletal System (Axial & Appendicular)',
+    classGrade: 11,
+    subject: 'Biology',
+    chapter: 'Chapter 20: Locomotion and Movement',
+    ncertFigure: 'Fig. 20.6 - Human Skeletal System (206 Bones)',
+    subtitle: 'Axial skeleton (skull, vertebral column, sternum, ribs) & appendicular skeleton (pectoral/pelvic girdles and limb bones)',
+    description: 'The adult human skeletal system consists of 206 bones grouped into two principal divisions: the Axial Skeleton (80 bones forming the longitudinal axis: skull, vertebral column, sternum, and ribs) and the Appendicular Skeleton (126 bones of the upper/lower limbs and pectoral/pelvic girdles).',
+    boardImportance: 'Crucial',
+    keyConcepts: [
+      'Axial Skeleton (80 Bones): Skull (22), Ear Ossicles (6), Hyoid (1), Vertebral Column (26), Sternum (1), Ribs (24)',
+      'Appendicular Skeleton (126 Bones): Pectoral Girdle (4), Upper Limbs (60), Pelvic Girdle (2), Lower Limbs (60)',
+      'True Ribs (Pairs 1–7), False Vertebrochondral Ribs (Pairs 8–10), Floating Ribs (Pairs 11–12)',
+      'Synovial Joints: Ball-and-Socket, Hinge, Pivot, Gliding, Saddle, and Condyloid'
+    ],
+    examTips: [
+      'High-yield board/NEET question: Distinguish between True Ribs (1–7, attached directly to sternum), False Ribs (8–10, joined to 7th rib via hyaline cartilage), and Floating Ribs (11–12, free anteriorly).',
+      'Remember the adult vertebral formula: C₇ T₁₂ L₅ S₍₅₎ Co₍₄₎ (33 embryonic vertebrae fusing into 26 adult bones).'
+    ],
+    keyFormulasOrFacts: [
+      'Total Adult Bones = 206 (80 Axial + 126 Appendicular).',
+      'Femur is the longest and strongest bone; Stapes (in middle ear) is the smallest bone.'
+    ],
+    renderType: 'ncert_skeleton',
+    formula: '206 Bones = 80 Axial + 126 Appendicular',
+    pinpoints: [
+      {
+        id: 'skull_cranium',
+        name: 'Skull (Cranium & Mandible — 22 Bones)',
+        position: [0, 1.72, 0.14],
+        description: '8 cranial vault bones (frontal, parietal, temporal, occipital, sphenoid, ethmoid) and 14 facial bones including the movable mandible.',
+        significance: 'Forms a rigid protective helmet (neurocranium) around the brain and houses sensory organs.',
+        formulaOrFact: 'Occipital condyles make the human skull dicondylic (articulates with C1 Atlas vertebra).'
+      },
+      {
+        id: 'thoracic_ribcage',
+        name: 'Thoracic Rib Cage, Sternum & Clavicles',
+        position: [0.16, 1.04, 0.12],
+        description: 'Formed dorsally by thoracic vertebrae, ventrally by the flat sternum, and laterally by 12 pairs of bicephalic ribs, topped by the clavicles.',
+        significance: 'Protects the heart and lungs while facilitating thoracic volume changes during breathing.',
+        formulaOrFact: '12 Pairs of Ribs = 7 Pairs True + 3 Pairs False + 2 Pairs Floating.'
+      },
+      {
+        id: 'vertebral_column',
+        name: 'Vertebral Column (Spine — 26 Bones)',
+        position: [0, 0.42, 0.05],
+        description: 'Dorso-medially placed serial column of 26 units: 7 Cervical, 12 Thoracic, 5 Lumbar, 1 fused Sacrum, and 1 fused Coccyx.',
+        significance: 'Protects the spinal cord passing through the neural canal and supports the head and trunk.',
+        formulaOrFact: 'First vertebra is the Atlas (C1); second is the Axis (C2) with the odontoid process.'
+      },
+      {
+        id: 'upper_limbs',
+        name: 'Upper Limbs (Humerus, Radius, Ulna & Hands)',
+        position: [-0.36, 0.48, 0.03],
+        description: 'Each forelimb comprises 30 bones: Humerus (1), Radius (1), Ulna (1), Carpals (8 wrist bones), Metacarpals (5 palm bones), and Phalanges (14 digits).',
+        significance: 'Articulates with the glenoid cavity of the scapula for wide-range manipulation and grasping.',
+        formulaOrFact: 'Digital phalangeal formula of the human hand: 2, 3, 3, 3, 3.'
+      },
+      {
+        id: 'pelvic_girdle',
+        name: 'Pelvic Girdle (Coxal Bones & Sacrum)',
+        position: [0.17, -0.02, 0.05],
+        description: 'Consists of two coxal bones, each formed by the fusion of three bones—ilium, ischium, and pubis—meeting ventrally at the pubic symphysis.',
+        significance: 'Bears the acetabulum socket with which the femur head articulates to transmit body weight.',
+        formulaOrFact: 'Joined ventrally by fibrous cartilage at the pubic symphysis.'
+      },
+      {
+        id: 'lower_limbs',
+        name: 'Lower Limbs (Femur, Patella, Tibia & Fibula)',
+        position: [0.13, -0.96, 0.05],
+        description: 'Each hindlimb has 30 bones: Femur (1 thigh bone), Patella (1 cup-shaped kneecap), Tibia (1), Fibula (1), Tarsals (7 ankle bones), Metatarsals (5), and Phalanges (14).',
+        significance: 'Supports upright bipedal stance and locomotion.',
+        formulaOrFact: '30 bones per lower limb × 2 = 60 Lower Limb Bones.'
+      }
+    ]
+  },
   // --- CLASS 6 ---
   {
     id: 'flower_anatomy',

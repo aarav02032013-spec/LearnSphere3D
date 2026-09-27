@@ -21,6 +21,7 @@ export interface Model3DItem {
   keyConcepts: string[];
   pinpoints: Pinpoint[];
   renderType: 
+    | 'skeleton'
     | 'dna' 
     | 'heart' 
     | 'brain' 

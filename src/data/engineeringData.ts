@@ -162,54 +162,54 @@ export const ADVANCED_MACHINES: AdvancedMachine[] = [
   },
   {
     id: 'microchip_motherboard',
-    name: 'Supercomputing Microprocessor & Mainboard',
+    name: 'Supercomputing Dual-Socket Server Mainboard',
     category: 'Computing',
-    subtitle: 'Heterogeneous Chiplet Architecture, PCIe 5.0 Bus & Multiphase VRM',
-    description: 'A high-performance computing motherboard demonstrating the physical and electrical topology of computer hardware: 3nm monolithic CPU die with hybrid P/E cores, high-speed differential PCIe traces, DDR5 memory channels, and 24-phase power delivery.',
+    subtitle: 'Dual LGA Xeon Sockets, 6-Channel ECC Registered DIMMs, Toroidal VRM & Blower GPU',
+    description: 'An enterprise dual-socket supercomputing server motherboard on a multi-layer emerald-green PCB featuring tandem LGA processor sockets, 6-channel blue DIMM slots with brushed-aluminum ECC registered memory modules, copper-wound toroidal VRM choke coils with finned heatsinks, extruded aluminum Northbridge/Southbridge coolers, black PCIe & ivory PCI expansion buses, and a companion red-PCB workstation blower GPU.',
     renderType: 'microchip_motherboard',
     specifications: [
-      { label: 'Transistor Count', value: '45 Billion (3nm FinFET)' },
-      { label: 'Core Topology', value: '16 P-Cores + 16 E-Cores' },
-      { label: 'Max Boost Clock', value: '6.0 GHz' },
-      { label: 'Memory Bandwidth', value: '128 GB/s (DDR5-7200)' },
-      { label: 'VRM Phases', value: '24+1+2 Direct Smart Power Stages' },
-      { label: 'Thermal Design Power', value: '250 Watts (PL2 Unlocked)' }
+      { label: 'Processor Topology', value: 'Dual-Socket SMP (2× LGA Xeon)' },
+      { label: 'Memory Architecture', value: '6-Channel ECC Registered DIMMs' },
+      { label: 'Power Delivery', value: '10-Phase Toroidal Choke VRM' },
+      { label: 'Core Logic Cooling', value: 'Dual Extruded Aluminum Heatsinks' },
+      { label: 'Expansion Interface', value: '3× PCIe Black + 2× PCI Ivory Slots' },
+      { label: 'Companion Accelerator', value: 'Red-PCB Radial Blower Workstation GPU' }
     ],
     components: [
       {
         id: 'cpu_socket',
-        name: 'LGA Processor Socket & Silicon Die',
-        role: 'Central Processing & Instruction Pipeline',
-        detail: 'Features 1,700 gold-plated spring pins transmitting microcode instructions across L1, L2, and 64MB shared L3 cache.',
-        position: [0, 0.2, 0]
+        name: 'Dual LGA Server Processor Sockets & Polymer Caps',
+        role: 'Symmetric Multiprocessing (SMP) Compute Cores',
+        detail: 'Tandem nickel-plated LGA server processor sockets with brushed integrated heat spreaders (IHS), retention load frames, locking levers, and flanking banks of solid aluminum polymer capacitors.',
+        position: [0.38, 0.16, -0.28]
       },
       {
         id: 'vrm_heatsink',
-        name: '24-Phase Digital Power VRM',
-        role: '12V DC to 1.3V Core Voltage Stepping',
-        detail: 'Chokes, solid tantalum capacitors, and MOSFETs stepping down voltage with 95% efficiency under 300A current load.',
-        position: [-0.9, 0.3, 0.5]
+        name: 'Toroidal Copper Inductors & Finned VRM Heatsinks',
+        role: 'High-Current Multi-Phase Voltage Regulation',
+        detail: '10 yellow-core toroidal inductors wound with heavy-gauge enameled red copper wire, paired with dual white-anodized multi-fin VRM heatsinks and high-capacitance electrolytic filtering drums.',
+        position: [0.92, 0.18, -0.35]
       },
       {
         id: 'ram_slots',
-        name: 'Quad DDR5 Memory Channels',
-        role: 'High-Bandwidth Volatile Storage',
-        detail: 'Dual 32-bit subchannels per DIMM with on-die error correction code (ECC) and aluminum thermal heat spreaders.',
-        position: [0.9, 0.25, 0.3]
+        name: '6-Channel Blue DIMM Slots & ECC Server Memory',
+        role: 'Error-Correcting High-Bandwidth System Memory',
+        detail: 'Six royal-blue DDR memory sockets with white ejector latches; three populated with tall brushed-aluminum ECC registered server DIMMs alongside spare bronze and black memory modules.',
+        position: [-0.78, 0.24, -0.62]
       },
       {
         id: 'pcie_lanes',
-        name: 'PCIe 5.0 x16 Expansion Bus',
-        role: 'Ultra-Fast GPU Data Interconnect',
-        detail: 'Steel-armored expansion slot delivering up to 64 GB/s bidirectional throughput directly to CPU lanes.',
-        position: [0, 0.15, -0.9]
+        name: 'Black PCIe, Ivory PCI Slots & Rear I/O Shield Towers',
+        role: 'Peripheral Bus Interconnect & External Server I/O',
+        detail: 'Three black PCI Express lanes (x16/x8/x4) and two cream-white legacy 32-bit PCI expansion slots, flanked on the left edge by stainless-steel USB/LAN cages, a teal DB9 serial port, and audio jacks.',
+        position: [-0.62, 0.14, 0.68]
       },
       {
         id: 'chipset_m2',
-        name: 'PCH Chipset & NVMe M.2 Heatshield',
-        role: 'I/O Multiplexing & Solid State Storage',
-        detail: 'Controls USB4, SATA, Wi-Fi 7, and Direct Memory Access across high-speed Gen5 NVMe solid-state storage.',
-        position: [0.7, 0.15, -0.7]
+        name: 'Extruded Northbridge/Southbridge Heatsinks & Blower GPU',
+        role: 'Memory/I/O Controller Hub & Workstation Graphics Accelerator',
+        detail: 'High-fin silver extruded aluminum Northbridge and Southbridge heatsinks on the mainboard, paired with the detached red-PCB radial-blower workstation GPU and inverted 3.5-inch server hard drive.',
+        position: [0.52, 0.20, 0.58]
       }
     ]
   }

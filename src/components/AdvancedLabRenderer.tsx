@@ -60,6 +60,8 @@ export const AdvancedLabRenderer: React.FC<AdvancedLabRendererProps> = ({
       camera.position.set(0, 3.65, 1.85);
     } else if (renderType === 'jet_engine') {
       camera.position.set(2.75, 0.55, 2.35);
+    } else if (renderType === 'microchip_motherboard') {
+      camera.position.set(-0.55, 2.65, 2.75);
     } else {
       camera.position.set(2.8, 2.0, 4.2);
     }
@@ -1532,116 +1534,592 @@ function buildRobotArm(group: THREE.Group, jointsRef: React.MutableRefObject<THR
   j3.add(wristGroup);
 }
 
-// 4. Supercomputing Motherboard
-function buildMotherboard(group: THREE.Group) {
-  // PCB Mainboard (Matte Black 10-layer substrate)
-  const pcbGeom = new THREE.BoxGeometry(3.2, 0.08, 2.6);
-  const pcbMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.4 });
-  const pcb = new THREE.Mesh(pcbGeom, pcbMat);
-  group.add(pcb);
+// Helper: Generate detailed emerald-green server PCB texture with white silkscreen, BGA grids & SMD pads
+function createGreenServerPCBTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    // Rich emerald server PCB base coat
+    ctx.fillStyle = '#156b38';
+    ctx.fillRect(0, 0, 512, 512);
 
-  // Glowing Neon Cyan Bus Traces on PCB
-  const traceCoords = [
-    [[-0.8, 0.05, -0.2], [0.2, 0.05, -0.2], [0.2, 0.05, 0.1]],
-    [[-0.4, 0.05, -0.6], [-0.4, 0.05, -0.1], [0.0, 0.05, 0.1]],
-    [[0.6, 0.05, -0.4], [0.6, 0.05, -0.1], [0.35, 0.05, 0.1]]
-  ];
-  traceCoords.forEach((pts) => {
-    const traceGeom = new THREE.BufferGeometry().setFromPoints(
-      pts.map((p) => new THREE.Vector3(p[0], p[1], p[2]))
-    );
-    const traceLine = new THREE.Line(
-      traceGeom,
-      new THREE.LineBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.85 })
-    );
-    group.add(traceLine);
+    // Subtle Lighter Green Copper Bus Etched Traces
+    ctx.strokeStyle = '#1f8a4c';
+    ctx.lineWidth = 1.5;
+    for (let i = 16; i < 500; i += 8) {
+      ctx.beginPath();
+      ctx.moveTo(20, i);
+      ctx.lineTo(240, i);
+      ctx.lineTo(260, i + 12);
+      ctx.lineTo(490, i + 12);
+      ctx.stroke();
+    }
+    for (let x = 24; x < 490; x += 10) {
+      ctx.beginPath();
+      ctx.moveTo(x, 20);
+      ctx.lineTo(x, 490);
+      ctx.stroke();
+    }
+
+    // White silkscreen component outlines & labels
+    ctx.strokeStyle = 'rgba(241, 245, 249, 0.65)';
+    ctx.lineWidth = 1;
+    for (let r = 0; r < 65; r++) {
+      const rx = ((r * 73) % 460) + 20;
+      const ry = ((r * 131) % 460) + 20;
+      const rw = 8 + (r % 3) * 6;
+      const rh = 5 + (r % 2) * 5;
+      ctx.strokeRect(rx, ry, rw, rh);
+    }
+
+    // White BGA array footprints (seen at bottom-left and bottom-right of board in photo)
+    const drawBGAGrid = (gx: number, gy: number, size: number) => {
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.75)';
+      ctx.strokeStyle = '#f8fafc';
+      ctx.strokeRect(gx - 3, gy - 3, size + 6, size + 6);
+      for (let x = gx; x < gx + size; x += 4) {
+        for (let y = gy; y < gy + size; y += 4) {
+          ctx.fillRect(x, y, 2, 2);
+        }
+      }
+    };
+    drawBGAGrid(32, 430, 44);
+    drawBGAGrid(435, 345, 48);
+    drawBGAGrid(265, 355, 32);
+
+    // Silver SMD solder pads & white silkscreen bar strips
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(92, 305, 16, 75);
+    ctx.fillRect(250, 325, 45, 10);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+// 4. Supercomputing Dual-Socket Server Motherboard & Workstation Hardware (Matching Reference Image)
+function buildMotherboard(group: THREE.Group) {
+  const pcbTex = createGreenServerPCBTexture();
+  const pcbTopMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    map: pcbTex,
+    roughness: 0.42,
+    metalness: 0.15
+  });
+  const pcbEdgeMat = new THREE.MeshStandardMaterial({
+    color: 0x0f5229,
+    roughness: 0.5
+  });
+  const brushedSilverMat = new THREE.MeshStandardMaterial({
+    color: 0xd8dee9,
+    metalness: 0.88,
+    roughness: 0.2
+  });
+  const anodizedWhiteAlumMat = new THREE.MeshStandardMaterial({
+    color: 0xf1f5f9,
+    metalness: 0.65,
+    roughness: 0.25
+  });
+  const blueSlotMat = new THREE.MeshStandardMaterial({
+    color: 0x1d4ed8,
+    roughness: 0.35,
+    metalness: 0.1
+  });
+  const ramSpreaderBlueSilverMat = new THREE.MeshStandardMaterial({
+    color: 0x93b4d8,
+    metalness: 0.82,
+    roughness: 0.22
+  });
+  const ivorySlotMat = new THREE.MeshStandardMaterial({
+    color: 0xfef3c7,
+    roughness: 0.4,
+    metalness: 0.05
+  });
+  const blackSlotMat = new THREE.MeshStandardMaterial({
+    color: 0x181b20,
+    roughness: 0.45,
+    metalness: 0.15
+  });
+  const darkSiliconMat = new THREE.MeshStandardMaterial({
+    color: 0x262930,
+    roughness: 0.35,
+    metalness: 0.4
+  });
+  const yellowCapMat = new THREE.MeshStandardMaterial({
+    color: 0xfacc15,
+    roughness: 0.3,
+    metalness: 0.2
+  });
+  const purpleCapMat = new THREE.MeshStandardMaterial({
+    color: 0x7c3aed,
+    roughness: 0.35,
+    metalness: 0.2
+  });
+  const brownCapMat = new THREE.MeshStandardMaterial({
+    color: 0x3b2314,
+    roughness: 0.35,
+    metalness: 0.25
+  });
+  const copperWindMat = new THREE.MeshStandardMaterial({
+    color: 0xdc2626,
+    metalness: 0.75,
+    roughness: 0.25
+  });
+  const tealPortMat = new THREE.MeshStandardMaterial({
+    color: 0x0d9488,
+    roughness: 0.35,
+    metalness: 0.2
+  });
+  const redGpuPcbMat = new THREE.MeshStandardMaterial({
+    color: 0xdc2626,
+    roughness: 0.38,
+    metalness: 0.2
   });
 
-  // CPU Socket & Integrated Heat Spreader (IHS)
+  // Main Emerald-Green Dual-Socket Server PCB Substrate (Centered slightly left so GPU fits on right)
+  const pcbGeom = new THREE.BoxGeometry(2.65, 0.06, 2.25);
+  const pcb = new THREE.Mesh(pcbGeom, [
+    pcbEdgeMat,
+    pcbEdgeMat,
+    pcbTopMat,
+    pcbEdgeMat,
+    pcbEdgeMat,
+    pcbEdgeMat
+  ]);
+  pcb.position.set(-0.22, 0, 0.05);
+  group.add(pcb);
+
+  // Small onboard square IC chips & grey ferrite inductors scattered on the green PCB
+  [
+    [-0.98, 0.045, 0.04, 0.22, 0.22],
+    [-0.06, 0.045, 0.36, 0.18, 0.14],
+    [0.08, 0.045, 0.68, 0.22, 0.22],
+    [0.72, 0.045, 0.32, 0.16, 0.16]
+  ].forEach(([ix, iy, iz, iw, id]) => {
+    const ic = new THREE.Mesh(new THREE.BoxGeometry(iw, 0.03, id), darkSiliconMat);
+    ic.position.set(ix, iy, iz);
+    group.add(ic);
+  });
+
+  // Grey Square Ferrite Inductors (1R0 blocks below the blue RAM slots)
+  [
+    [-0.98, -0.18],
+    [-0.84, -0.18],
+    [-0.70, -0.18],
+    [-0.78, -0.06],
+    [-0.64, -0.06],
+    [-0.50, -0.06]
+  ].forEach(([fx, fz]) => {
+    const choke = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.06, 0.10), darkSiliconMat);
+    choke.position.set(fx, 0.06, fz);
+    group.add(choke);
+  });
+
+  // ============================================================================
+  // SUBSYSTEM 1: DUAL LGA SERVER CPU SOCKETS & SOLID POLYMER CAPACITOR BANKS
+  // ============================================================================
   const cpuGroup = new THREE.Group();
   cpuGroup.name = 'comp_cpu_socket';
   cpuGroup.userData = { componentId: 'cpu_socket' };
 
-  const socketGeom = new THREE.BoxGeometry(0.85, 0.06, 0.85);
-  const socketMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.4 });
-  const socket = new THREE.Mesh(socketGeom, socketMat);
-  socket.position.set(0, 0.06, 0.2);
-  cpuGroup.add(socket);
+  // Two Tandem Server CPU Sockets (Upper Socket 1 at z = -0.58, Lower Socket 2 at z = 0.04)
+  [
+    [0.24, -0.58],
+    [0.32, 0.04]
+  ].forEach(([cx, cz]) => {
+    const sockHolder = new THREE.Group();
+    sockHolder.position.set(cx, 0.04, cz);
 
-  const ihsGeom = new THREE.BoxGeometry(0.68, 0.08, 0.68);
-  const ihsMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.95, roughness: 0.1 });
-  const ihs = new THREE.Mesh(ihsGeom, ihsMat);
-  ihs.position.set(0, 0.12, 0.2);
-  cpuGroup.add(ihs);
+    // Socket Base Frame
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.04, 0.46), darkSiliconMat);
+    sockHolder.add(frame);
+
+    // Brushed Stainless Retention Load Plate
+    const loadPlate = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.055, 0.44), brushedSilverMat);
+    loadPlate.position.y = 0.02;
+    sockHolder.add(loadPlate);
+
+    // Raised Nickel-Plated CPU Integrated Heat Spreader (IHS)
+    const ihs = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.075, 0.32), brushedSilverMat);
+    ihs.position.y = 0.035;
+    sockHolder.add(ihs);
+
+    // Socket Locking Lever Arm
+    const lever = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.01, 0.01, 0.46, 8),
+      brushedSilverMat
+    );
+    lever.rotation.x = Math.PI / 2;
+    lever.position.set(-0.24, 0.04, 0);
+    sockHolder.add(lever);
+
+    cpuGroup.add(sockHolder);
+  });
+
+  // Rows of Silver-Top Solid Polymer Capacitors Flanking Both CPU Sockets
+  for (let i = 0; i < 8; i++) {
+    // Top row above Socket 1
+    const capTop = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 0.09, 14),
+      brushedSilverMat
+    );
+    capTop.position.set(-0.08 + i * 0.075, 0.075, -0.88);
+    cpuGroup.add(capTop);
+
+    // Middle row between Socket 1 and Socket 2
+    const capMid = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 0.09, 14),
+      brushedSilverMat
+    );
+    capMid.position.set(-0.02 + i * 0.075, 0.075, -0.27);
+    cpuGroup.add(capMid);
+  }
+
   group.add(cpuGroup);
 
-  // VRM Heatsinks (L-shaped fin arrays with subtle metallic edges)
+  // ============================================================================
+  // SUBSYSTEM 2: TOROIDAL COPPER INDUCTORS & WHITE/SILVER FINNED VRM HEATSINKS
+  // ============================================================================
   const vrmGroup = new THREE.Group();
   vrmGroup.name = 'comp_vrm_heatsink';
   vrmGroup.userData = { componentId: 'vrm_heatsink' };
 
-  const vrmTopGeom = new THREE.BoxGeometry(1.4, 0.35, 0.3);
-  const vrmMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 });
-  const vrmTop = new THREE.Mesh(vrmTopGeom, vrmMat);
-  vrmTop.position.set(0, 0.2, 0.85);
-  vrmGroup.add(vrmTop);
+  // 9 Yellow-Core Toroidal Choke Coils Wound with Red/Copper Wire (Right of CPU Sockets)
+  for (let t = 0; t < 9; t++) {
+    const tz = -0.82 + t * 0.125;
+    const tx = 0.68 + (t > 4 ? 0.06 : 0);
+    const toroidHolder = new THREE.Group();
+    toroidHolder.position.set(tx, 0.085, tz);
+    toroidHolder.rotation.y = 0.35;
 
-  const vrmSideGeom = new THREE.BoxGeometry(0.3, 0.35, 1.2);
-  const vrmSide = new THREE.Mesh(vrmSideGeom, vrmMat);
-  vrmSide.position.set(-0.85, 0.2, 0.2);
-  vrmGroup.add(vrmSide);
+    // Yellow Toroid Core
+    const yellowCore = new THREE.Mesh(
+      new THREE.TorusGeometry(0.038, 0.016, 12, 20),
+      yellowCapMat
+    );
+    toroidHolder.add(yellowCore);
+
+    // Red/Copper Wire Windings around Toroid
+    for (let w = 0; w < 6; w++) {
+      const wAng = (w / 6) * Math.PI * 2;
+      const windLoop = new THREE.Mesh(
+        new THREE.TorusGeometry(0.019, 0.006, 8, 12),
+        copperWindMat
+      );
+      windLoop.position.set(Math.cos(wAng) * 0.038, Math.sin(wAng) * 0.038, 0);
+      windLoop.rotation.z = wAng + Math.PI / 2;
+      toroidHolder.add(windLoop);
+    }
+    vrmGroup.add(toroidHolder);
+  }
+
+  // Two Long White/Silver Multi-Fin VRM Heatsinks to the Right of the Toroid Chokes
+  [-0.58, 0.02].forEach((hz, hIdx) => {
+    const hx = 0.85 + hIdx * 0.05;
+    const hsBase = new THREE.Mesh(
+      new THREE.BoxGeometry(0.11, 0.04, 0.52),
+      anodizedWhiteAlumMat
+    );
+    hsBase.position.set(hx, 0.05, hz);
+    vrmGroup.add(hsBase);
+
+    for (let f = -0.24; f <= 0.24; f += 0.04) {
+      const fin = new THREE.Mesh(
+        new THREE.BoxGeometry(0.11, 0.16, 0.015),
+        anodizedWhiteAlumMat
+      );
+      fin.position.set(hx, 0.12, hz + f);
+      vrmGroup.add(fin);
+    }
+  });
+
+  // Tall Dark-Brown Electrolytic Capacitor Drums near VRM edge
+  [
+    [0.54, -0.96],
+    [0.84, 0.34],
+    [0.94, 0.34],
+    [0.89, 0.44]
+  ].forEach(([bx, bz]) => {
+    const drum = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.042, 0.042, 0.20, 16),
+      brownCapMat
+    );
+    drum.position.set(bx, 0.13, bz);
+    vrmGroup.add(drum);
+
+    const drumTop = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.038, 0.038, 0.01, 16),
+      brushedSilverMat
+    );
+    drumTop.position.set(bx, 0.232, bz);
+    vrmGroup.add(drumTop);
+  });
+
   group.add(vrmGroup);
 
-  // 4 DDR5 RAM Slots with glowing RGB lightbars
+  // ============================================================================
+  // SUBSYSTEM 3: 6-CHANNEL BLUE DIMM SLOTS & ECC REGISTERED SERVER RAM MODULES
+  // ============================================================================
   const ramGroup = new THREE.Group();
   ramGroup.name = 'comp_ram_slots';
   ramGroup.userData = { componentId: 'ram_slots' };
 
-  for (let i = 0; i < 4; i++) {
-    const xPos = 0.65 + i * 0.18;
-    const stickGeom = new THREE.BoxGeometry(0.06, 0.32, 1.4);
-    const stickMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 });
-    const stick = new THREE.Mesh(stickGeom, stickMat);
-    stick.position.set(xPos, 0.2, 0.2);
-    ramGroup.add(stick);
+  // 6 Horizontal Blue DIMM Slots on Upper-Left of Board (z = -0.86 to -0.36)
+  for (let s = 0; s < 6; s++) {
+    const sz = -0.86 + s * 0.10;
+    // Blue DIMM Socket Rail
+    const slotRail = new THREE.Mesh(new THREE.BoxGeometry(1.04, 0.06, 0.055), blueSlotMat);
+    slotRail.position.set(-0.74, 0.06, sz);
+    ramGroup.add(slotRail);
 
-    // Glowing RGB strip on top of RAM
-    const rgbColors = [0xec4899, 0xa855f7, 0x3b82f6, 0x06b6d4];
-    const rgbGeom = new THREE.BoxGeometry(0.06, 0.04, 1.38);
-    const rgbMat = new THREE.MeshBasicMaterial({ color: rgbColors[i] });
-    const rgbStrip = new THREE.Mesh(rgbGeom, rgbMat);
-    rgbStrip.position.set(xPos, 0.37, 0.2);
-    ramGroup.add(rgbStrip);
+    // White Ejector Latches at Left & Right Ends of each Blue DIMM Slot
+    [-1.28, -0.20].forEach((lx) => {
+      const latch = new THREE.Mesh(
+        new THREE.BoxGeometry(0.045, 0.11, 0.05),
+        anodizedWhiteAlumMat
+      );
+      latch.position.set(lx, 0.085, sz);
+      latch.rotation.z = lx < -0.5 ? 0.18 : -0.18;
+      ramGroup.add(latch);
+    });
+
+    // Populate the back 3 slots (s = 0, 1, 2) with tall ECC Registered RAM Modules with Silver-Blue Heatspreaders
+    if (s < 3) {
+      const stickPcb = new THREE.Mesh(
+        new THREE.BoxGeometry(1.0, 0.24, 0.018),
+        pcbEdgeMat
+      );
+      stickPcb.position.set(-0.74, 0.19, sz);
+      ramGroup.add(stickPcb);
+
+      const heatSpreader = new THREE.Mesh(
+        new THREE.BoxGeometry(0.98, 0.22, 0.034),
+        ramSpreaderBlueSilverMat
+      );
+      heatSpreader.position.set(-0.74, 0.19, sz);
+      ramGroup.add(heatSpreader);
+
+      // Top metal clip ridges on ECC Server RAM heatspreader
+      [-0.32, 0.0, 0.32].forEach((clipX) => {
+        const clip = new THREE.Mesh(
+          new THREE.BoxGeometry(0.11, 0.04, 0.044),
+          brushedSilverMat
+        );
+        clip.position.set(-0.74 + clipX, 0.29, sz);
+        ramGroup.add(clip);
+      });
+    }
   }
+
+  // Spare Detached RAM Modules Laid Flat Behind the Upper Edge of Motherboard (Matches top of photo)
+  [
+    [-0.95, -1.24, 0xb48a5a],
+    [-0.95, -1.38, 0xb48a5a],
+    [0.05, -1.26, 0x1e242b],
+    [0.05, -1.40, 0x1e242b]
+  ].forEach(([rx, rz, rColor]) => {
+    const spareStick = new THREE.Mesh(
+      new THREE.BoxGeometry(0.86, 0.03, 0.11),
+      new THREE.MeshStandardMaterial({ color: rColor, metalness: 0.7, roughness: 0.3 })
+    );
+    spareStick.position.set(rx, 0.015, rz);
+    ramGroup.add(spareStick);
+  });
+
   group.add(ramGroup);
 
-  // PCIe 5.0 Steel-Reinforced Slots
+  // ============================================================================
+  // SUBSYSTEM 4: BLACK PCIe SLOTS, IVORY LEGACY PCI SLOTS & REAR I/O SHIELD
+  // ============================================================================
   const pcieGroup = new THREE.Group();
   pcieGroup.name = 'comp_pcie_lanes';
   pcieGroup.userData = { componentId: 'pcie_lanes' };
 
-  const slot1Geom = new THREE.BoxGeometry(1.8, 0.15, 0.12);
-  const slotMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.15 });
-  const slot1 = new THREE.Mesh(slot1Geom, slotMat);
-  slot1.position.set(-0.1, 0.1, -0.45);
-  pcieGroup.add(slot1);
+  // 3 Black PCI Express Slots (1 long x16 at z = 0.22, 2 shorter x8/x4 at z = 0.50 & 0.66)
+  [
+    [-0.72, 0.22, 0.96],
+    [-0.84, 0.50, 0.68],
+    [-0.84, 0.66, 0.68]
+  ].forEach(([px, pz, pLen]) => {
+    const blackSlot = new THREE.Mesh(new THREE.BoxGeometry(pLen, 0.08, 0.07), blackSlotMat);
+    blackSlot.position.set(px, 0.07, pz);
+    pcieGroup.add(blackSlot);
+  });
 
-  const slot2 = new THREE.Mesh(slot1Geom, slotMat);
-  slot2.position.set(-0.1, 0.1, -0.95);
-  pcieGroup.add(slot2);
+  // 2 Cream / Ivory-White Legacy 32-Bit PCI Slots at Bottom-Left (z = 0.86 & 1.02)
+  [0.86, 1.02].forEach((pz) => {
+    const ivorySlot = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.085, 0.075), ivorySlotMat);
+    ivorySlot.position.set(-0.56, 0.072, pz);
+    pcieGroup.add(ivorySlot);
+
+    // Slot key divider notch
+    const notch = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.09, 0.078), ivorySlotMat);
+    notch.position.set(-0.18, 0.075, pz);
+    pcieGroup.add(notch);
+  });
+
+  // Left-Edge Stainless Steel Rear I/O Port Shield Towers (x = -1.44)
+  [
+    [-1.44, 0.16, -0.88, 0.20, 0.26, 0.22, brushedSilverMat], // PS/2 & USB Tower
+    [-1.44, 0.11, -0.58, 0.22, 0.14, 0.26, tealPortMat],      // Teal DB9 Serial Port
+    [-1.44, 0.18, -0.28, 0.24, 0.30, 0.24, brushedSilverMat], // Dual USB + RJ45 LAN 1
+    [-1.44, 0.18, 0.02, 0.24, 0.30, 0.24, brushedSilverMat],  // Dual USB + RJ45 LAN 2
+    [-1.44, 0.16, 0.30, 0.20, 0.26, 0.18, brushedSilverMat]   // Audio Jack Stack
+  ].forEach(([iox, ioy, ioz, iow, ioh, iod, ioMat]) => {
+    const tower = new THREE.Mesh(
+      new THREE.BoxGeometry(iow as number, ioh as number, iod as number),
+      ioMat as THREE.Material
+    );
+    tower.position.set(iox as number, ioy as number, ioz as number);
+    pcieGroup.add(tower);
+  });
+
+  // White 8-pin / 24-pin Power Header Blocks & Black SATA Ports along Board Edges
+  const whitePwrLeft = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.09, 0.14), ivorySlotMat);
+  whitePwrLeft.position.set(-1.32, 0.075, 0.32);
+  pcieGroup.add(whitePwrLeft);
+
+  const whitePwrRight = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.10, 0.18), ivorySlotMat);
+  whitePwrRight.position.set(0.92, 0.08, 0.42);
+  pcieGroup.add(whitePwrRight);
+
+  // 4 Black SATA Ports along Bottom-Right Edge (z = 1.08)
+  for (let sata = 0; sata < 4; sata++) {
+    const sataPort = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.07, 0.06), blackSlotMat);
+    sataPort.position.set(0.45 + sata * 0.17, 0.065, 1.08);
+    pcieGroup.add(sataPort);
+  }
+
   group.add(pcieGroup);
 
-  // M.2 Armor & Chipset Heatsink
-  const m2Group = new THREE.Group();
-  m2Group.name = 'comp_chipset_m2';
-  m2Group.userData = { componentId: 'chipset_m2' };
+  // ============================================================================
+  // SUBSYSTEM 5: EXTRUDED ALUMINUM NORTHBRIDGE/SOUTHBRIDGE & WORKSTATION GPU
+  // ============================================================================
+  const chipsetGroup = new THREE.Group();
+  chipsetGroup.name = 'comp_chipset_m2';
+  chipsetGroup.userData = { componentId: 'chipset_m2' };
 
-  const m2Geom = new THREE.BoxGeometry(0.9, 0.12, 0.7);
-  const m2Mat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8, roughness: 0.3 });
-  const m2 = new THREE.Mesh(m2Geom, m2Mat);
-  m2.position.set(0.8, 0.1, -0.7);
-  m2Group.add(m2);
-  group.add(m2Group);
+  // 1. Tall Silver Extruded Aluminum Finned Northbridge Heatsink (Center of Board: x = -0.22, z = -0.18)
+  const nbBase = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.05, 0.36), brushedSilverMat);
+  nbBase.position.set(-0.22, 0.055, -0.18);
+  chipsetGroup.add(nbBase);
+
+  for (let f = -0.15; f <= 0.15; f += 0.05) {
+    const nbFin = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.24, 0.016), brushedSilverMat);
+    nbFin.position.set(-0.22, 0.18, -0.18 + f);
+    chipsetGroup.add(nbFin);
+  }
+
+  // 2. Wide Silver Extruded Aluminum Finned Southbridge Heatsink (Lower-Right: x = 0.42, z = 0.62)
+  const sbBase = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.04, 0.40), brushedSilverMat);
+  sbBase.position.set(0.42, 0.05, 0.62);
+  chipsetGroup.add(sbBase);
+
+  for (let f = -0.17; f <= 0.17; f += 0.048) {
+    const sbFin = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.15, 0.016), brushedSilverMat);
+    sbFin.position.set(0.42, 0.13, 0.62 + f);
+    chipsetGroup.add(sbFin);
+  }
+
+  // Yellow & Purple Cylindrical Electrolytic Capacitors scattered around Northbridge & Southbridge
+  [
+    [-0.52, -0.24, yellowCapMat],
+    [-0.46, -0.24, yellowCapMat],
+    [-0.50, -0.15, yellowCapMat],
+    [-0.44, -0.15, yellowCapMat],
+    [0.24, 0.34, yellowCapMat],
+    [0.31, 0.34, yellowCapMat],
+    [0.48, 0.34, purpleCapMat],
+    [0.58, 0.44, yellowCapMat],
+    [0.65, 0.44, yellowCapMat],
+    [0.74, 0.82, yellowCapMat],
+    [0.81, 0.82, yellowCapMat],
+    [0.76, 0.24, yellowCapMat]
+  ].forEach(([cx, cz, cMat]) => {
+    const cap = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.028, 0.028, 0.10, 14),
+      cMat as THREE.Material
+    );
+    cap.position.set(cx as number, 0.08, cz as number);
+    chipsetGroup.add(cap);
+  });
+
+  // 3. Companion Red-PCB Blower-Style Workstation Graphics Card (Laid out on Right Side of Board)
+  const gpuHolder = new THREE.Group();
+  gpuHolder.position.set(1.52, 0.02, -0.22);
+
+  // Red GPU PCB
+  const gpuPcb = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.035, 1.32), redGpuPcbMat);
+  gpuHolder.add(gpuPcb);
+
+  // Contoured Matte-Black Radial Blower Cooler Shroud
+  const gpuShroud = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.14, 1.02), blackSlotMat);
+  gpuShroud.position.set(0.02, 0.085, 0.08);
+  gpuHolder.add(gpuShroud);
+
+  // Rounded Front End of Blower Shroud with Circular Radial Fan Intake
+  const shroudRound = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.26, 0.26, 0.14, 24),
+    blackSlotMat
+  );
+  shroudRound.position.set(0.02, 0.085, 0.58);
+  gpuHolder.add(shroudRound);
+
+  const fanWell = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.17, 0.17, 0.15, 24),
+    darkSiliconMat
+  );
+  fanWell.position.set(0.02, 0.086, 0.54);
+  gpuHolder.add(fanWell);
+
+  const fanHub = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.06, 0.06, 0.16, 16),
+    blackSlotMat
+  );
+  fanHub.position.set(0.02, 0.088, 0.54);
+  gpuHolder.add(fanHub);
+
+  // Silver PCI Bracket with Blue VGA & White DVI Ports at back of GPU
+  const gpuBracket = new THREE.Mesh(
+    new THREE.BoxGeometry(0.68, 0.18, 0.03),
+    brushedSilverMat
+  );
+  gpuBracket.position.set(0.0, 0.09, -0.66);
+  gpuHolder.add(gpuBracket);
+
+  const vgaPort = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.06), blueSlotMat);
+  vgaPort.position.set(-0.16, 0.06, -0.68);
+  gpuHolder.add(vgaPort);
+
+  const dviPort = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.06, 0.06), ivorySlotMat);
+  dviPort.position.set(0.10, 0.06, -0.68);
+  gpuHolder.add(dviPort);
+
+  chipsetGroup.add(gpuHolder);
+
+  // 4. Companion 3.5-Inch Server Hard Disk Drive (Top-Right Corner, Inverted showing Green Controller Board & Spindle)
+  const hddHolder = new THREE.Group();
+  hddHolder.position.set(1.22, 0.04, -1.28);
+
+  const hddChassis = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 0.78), darkSiliconMat);
+  hddHolder.add(hddChassis);
+
+  const hddPcb = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.02, 0.72), pcbEdgeMat);
+  hddPcb.position.y = 0.045;
+  hddHolder.add(hddPcb);
+
+  const spindleHub = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.12, 0.12, 0.025, 20),
+    brushedSilverMat
+  );
+  spindleHub.position.set(0.06, 0.05, 0.08);
+  hddHolder.add(spindleHub);
+
+  chipsetGroup.add(hddHolder);
+
+  group.add(chipsetGroup);
 }
 
 // Explode offsets dynamically
@@ -1672,5 +2150,28 @@ function updateExplodedOffsets(group: THREE.Group, renderType: string, factor: n
     if (turb) turb.position.z = -factor * 0.65;
     const exh = group.getObjectByName('comp_exhaust_nozzle');
     if (exh) exh.position.z = -factor * 1.25;
+  } else if (renderType === 'microchip_motherboard') {
+    const cpu = group.getObjectByName('comp_cpu_socket');
+    if (cpu) cpu.position.y = factor * 0.65;
+    const vrm = group.getObjectByName('comp_vrm_heatsink');
+    if (vrm) {
+      vrm.position.y = factor * 0.45;
+      vrm.position.x = factor * 0.35;
+    }
+    const ram = group.getObjectByName('comp_ram_slots');
+    if (ram) {
+      ram.position.y = factor * 0.55;
+      ram.position.z = -factor * 0.25;
+    }
+    const pcie = group.getObjectByName('comp_pcie_lanes');
+    if (pcie) {
+      pcie.position.y = factor * 0.35;
+      pcie.position.x = -factor * 0.25;
+    }
+    const chip = group.getObjectByName('comp_chipset_m2');
+    if (chip) {
+      chip.position.y = factor * 0.5;
+      chip.position.x = factor * 0.3;
+    }
   }
 }

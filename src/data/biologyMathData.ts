@@ -1,6 +1,74 @@
 import { Model3DItem } from '../types';
 
 export const BIOLOGY_MATH_MODELS: Model3DItem[] = [
+  // Featured Biology — Human Skeletal System
+  {
+    id: 'human_skeleton',
+    title: 'Human Skeletal System (206 Bones)',
+    category: 'Biology',
+    grade: 'middle',
+    gradeLabel: 'Class 6–12',
+    subtitle: 'Axial (80 bones) & Appendicular (126 bones) osteological framework, joints, and biomechanics',
+    description: 'The adult human skeleton comprises 206 articulated bones divided into the Axial Skeleton (skull, vertebral column, sternum, and 12 pairs of ribs) and the Appendicular Skeleton (pectoral girdle, upper limbs, pelvic girdle, and lower limbs). It provides structural support, protects vital organs, acts as levers for skeletal muscles, stores calcium/phosphate minerals, and produces blood cells via red bone marrow hematopoiesis.',
+    keyConcepts: [
+      'Axial Skeleton (80 Bones: Skull, Spine, Ribs, Sternum)',
+      'Appendicular Skeleton (126 Bones: Girdles & Limbs)',
+      'Synovial Joints (Ball-and-Socket, Hinge, Pivot, Gliding)',
+      'Hematopoiesis in Red Marrow & Calcium Homeostasis'
+    ],
+    renderType: 'skeleton',
+    formula: '206 Total Bones = 80 Axial + 126 Appendicular',
+    pinpoints: [
+      {
+        id: 'skull_cranium',
+        name: 'Skull (Cranium & Mandible — 22 Bones)',
+        position: [0, 1.72, 0.14],
+        description: 'Composed of 8 cranial vault bones fused by immovable fibrous sutures (protecting the brain) and 14 facial bones including the maxilla, zygomatic arches, and the freely movable mandible (lower jaw).',
+        significance: 'Protects the encephalon (brain) and houses the special sense organs for vision, hearing, olfaction, and taste.',
+        formulaOrFact: '22 Skull Bones = 8 Cranial + 14 Facial (+ 6 auditory ossicles & 1 hyoid bone).'
+      },
+      {
+        id: 'thoracic_ribcage',
+        name: 'Thoracic Rib Cage, Sternum & Clavicles',
+        position: [0.16, 1.04, 0.12],
+        description: 'Bony thoracic basket formed by the anterior sternum (manubrium, body, xiphoid process), 12 thoracic vertebrae, and 12 pairs of curved ribs, topped by the S-shaped clavicles and scapulae.',
+        significance: 'Shields the heart, lungs, and great vessels while expanding during inspiration via intercostal muscle contraction.',
+        formulaOrFact: 'Pairs 1–7: True (vertebrosternal) ribs; Pairs 8–10: False (vertebrochondral) ribs; Pairs 11–12: Floating ribs.'
+      },
+      {
+        id: 'vertebral_column',
+        name: 'Vertebral Column (Spine — 26 Bones)',
+        position: [0, 0.42, 0.05],
+        description: 'S-curved axial column of 33 vertebrae (26 adult bones) separated by shock-absorbing fibrocartilaginous intervertebral discs: 7 Cervical, 12 Thoracic, 5 Lumbar, 1 Sacrum (5 fused), and 1 Coccyx (4 fused).',
+        significance: 'Protects the spinal cord within the vertebral canal and supports upright bipedal posture.',
+        formulaOrFact: 'Vertebral formula: C₇ T₁₂ L₅ S₍₅₎ Co₍₄₎.'
+      },
+      {
+        id: 'upper_limbs',
+        name: 'Upper Limbs (Humerus, Radius, Ulna & Hands)',
+        position: [-0.36, 0.48, 0.03],
+        description: 'Articulated upper extremity comprising the humerus (upper arm), lateral radius and medial ulna (forearm), 8 wrist carpals, 5 palm metacarpals, and 14 finger phalanges.',
+        significance: 'Enables 360° circumduction at the glenohumeral shoulder joint, forearm pronation/supination, and fine manual dexterity.',
+        formulaOrFact: '30 bones per upper limb × 2 = 60 Upper Limb Bones.'
+      },
+      {
+        id: 'pelvic_girdle',
+        name: 'Pelvic Girdle (Ilium, Ischium & Pubis)',
+        position: [0.17, -0.02, 0.05],
+        description: 'Ring-shaped bony pelvis formed by two coxal (hip) bones—each fused from the flared ilium, inferior ischium, and anterior pubis—joined anteriorly at the pubic symphysis and posteriorly at the sacrum.',
+        significance: 'Transmits upper-body weight to the lower limbs via the deep acetabulum hip socket and supports abdominal/pelvic organs.',
+        formulaOrFact: 'Features the obturator foramen, the largest bony foramen in the human skeleton.'
+      },
+      {
+        id: 'lower_limbs',
+        name: 'Lower Limbs (Femur, Patella, Tibia & Fibula)',
+        position: [0.13, -0.96, 0.05],
+        description: 'Weight-bearing lower extremity consisting of the femur (longest and strongest bone), sesamoid patella (kneecap), medial weight-bearing tibia, slender lateral fibula, 7 ankle tarsals, 5 metatarsals, and 14 toe phalanges.',
+        significance: 'Engineered for high-load bipedal locomotion, shock absorption, and upright balance.',
+        formulaOrFact: 'The femur can withstand axial compressive forces exceeding 1,800–2,500 N during running.'
+      }
+    ]
+  },
   // Class 6-8 (Middle School)
   {
     id: 'plant_cell',

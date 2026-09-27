@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Pinpoint } from '../../types';
+import {
+  buildHumanSkeleton3D,
+  resolveSkeletonRegionFromPoint
+} from './humanSkeletonBuilder';
 
 export interface NCERTPartInfo {
   name: string;
@@ -323,8 +327,13 @@ export const NCERT3DCanvas: React.FC<NCERT3DCanvasProps> = ({
               highlightObject(curr);
               currentHoveredObjRef.current = curr;
             }
+            let partInfo = curr.userData.partInfo;
+            if (curr.userData.isSkeletonGLB && modelGroupRef.current) {
+              const localPt = modelGroupRef.current.worldToLocal(hit.point.clone());
+              partInfo = resolveSkeletonRegionFromPoint(localPt.x, localPt.y);
+            }
             setHoveredTooltip({
-              ...curr.userData.partInfo,
+              ...partInfo,
               screenX: clientX - rect.left,
               screenY: clientY - rect.top
             });
@@ -375,7 +384,12 @@ export const NCERT3DCanvas: React.FC<NCERT3DCanvasProps> = ({
           let curr: THREE.Object3D | null = hit.object;
           while (curr && curr !== modelGroupRef.current) {
             if (curr.userData?.partInfo?.pinId) {
-              const pin = pinpoints.find((p) => p.id === curr!.userData.partInfo.pinId);
+              let targetPinId = curr.userData.partInfo.pinId;
+              if (curr.userData.isSkeletonGLB && modelGroupRef.current) {
+                const localPt = modelGroupRef.current.worldToLocal(hit.point.clone());
+                targetPinId = resolveSkeletonRegionFromPoint(localPt.x, localPt.y).pinId;
+              }
+              const pin = pinpoints.find((p) => p.id === targetPinId);
               if (pin) {
                 onSelectPin(pin);
                 return;
@@ -394,10 +408,14 @@ export const NCERT3DCanvas: React.FC<NCERT3DCanvasProps> = ({
     const handleNativeWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!cameraRef.current) return;
+      const cam = cameraRef.current;
+      if (!cam) return;
       const zoomDelta = e.deltaY * 0.003;
-      if (Number.isFinite(zoomDelta)) {
-        cameraRef.current.position.z = Math.max(1.8, Math.min(8.0, cameraRef.current.position.z + zoomDelta));
+      const currentDist = cam.position.length();
+      if (Number.isFinite(zoomDelta) && currentDist > 0.001) {
+        const nextDist = Math.max(1.8, Math.min(8.5, currentDist + zoomDelta));
+        cam.position.setLength(nextDist);
+        cam.lookAt(0, 0, 0);
       }
     };
     el.addEventListener('wheel', handleNativeWheel, { passive: false });
@@ -535,7 +553,7 @@ function clearGroup(group: THREE.Group) {
     const child = group.children[0];
     group.remove(child);
     child.traverse((obj: any) => {
-      if (obj && obj.geometry) {
+      if (obj && obj.geometry && !obj.userData?.__preserveGeometry) {
         try {
           obj.geometry.dispose();
         } catch {}
@@ -553,7 +571,7 @@ function highlightObject(rootObj: THREE.Object3D) {
         const clone = obj.material.clone();
         if ('emissive' in clone) {
           clone.emissive.setHex(0x38bdf8);
-          clone.emissiveIntensity = 0.9;
+          clone.emissiveIntensity = obj.userData?.__hoverEmissiveIntensity ?? 0.9;
         } else if ('color' in clone) {
           clone.color.setHex(0x38bdf8);
         }
@@ -625,6 +643,9 @@ interface ModelOpts {
 
 function buildNCERTModel(renderType: string, group: THREE.Group, opts: ModelOpts) {
   switch (renderType) {
+    case 'ncert_skeleton':
+      buildHumanSkeleton3D(group, opts);
+      return;
     case 'ncert_flower':
       buildFlowerModel(group, opts);
       break;
