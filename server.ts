@@ -7,6 +7,7 @@ import {
   generateLocalLumiResponse,
   fetchLiveAcademicAnswer,
   cleanAIMathFormatting,
+  buildValidGeminiContents,
 } from './src/components/StudyBuddy/lumiKnowledgeEngine';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -104,16 +105,7 @@ Formatting guidelines:
 
     const ai = getGenAIClient();
 
-    const contents = [
-      ...history.slice(-10).map((turn) => ({
-        role: turn.role,
-        parts: [{ text: turn.text }],
-      })),
-      {
-        role: 'user' as const,
-        parts: [{ text: message.trim() }],
-      },
-    ];
+    const contents = buildValidGeminiContents(history, message.trim());
 
     const modelsToTry = [
       'gemini-3.8-flash',

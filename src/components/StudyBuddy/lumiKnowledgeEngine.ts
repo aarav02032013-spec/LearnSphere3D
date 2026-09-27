@@ -938,27 +938,72 @@ export function cleanTexSymbols(tex: string, preserveNewlines = false): string {
 }
 
 /**
- * Calls Gemini's Free Flash AI Model directly via @google/genai when deployed to GitHub Pages
- * (if GEMINI_API_KEY / VITE_GEMINI_API_KEY is embedded at build time) and falls back to
- * zero-key cloud AI inference so Lumi is always fast and intelligent on static hosts.
+ * Builds a strictly alternating user/model contents array for @google/genai
+ * so multi-turn conversations never fail with HTTP 400 role alternation errors.
+ */
+export function buildValidGeminiContents(
+  history: Array<{ role: 'user' | 'model'; text: string }>,
+  currentMessage: string
+): Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> {
+  const normalized: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+
+  for (const turn of history.slice(-8)) {
+    const cleanText = (turn.text || '').trim().slice(0, 800);
+    if (!cleanText) continue;
+    const role: 'user' | 'model' = turn.role === 'model' ? 'model' : 'user';
+
+    if (normalized.length === 0) {
+      // Gemini requires the first turn in contents to be 'user'
+      if (role === 'model') continue;
+      normalized.push({ role, parts: [{ text: cleanText }] });
+    } else {
+      const prev = normalized[normalized.length - 1];
+      if (prev.role === role) {
+        prev.parts[0].text = `${prev.parts[0].text}\n\n${cleanText}`.slice(0, 1000);
+      } else {
+        normalized.push({ role, parts: [{ text: cleanText }] });
+      }
+    }
+  }
+
+  // Ensure the turn immediately preceding currentMessage is 'model'
+  if (normalized.length > 0 && normalized[normalized.length - 1].role === 'user') {
+    normalized.pop();
+  }
+
+  normalized.push({
+    role: 'user',
+    parts: [{ text: currentMessage.trim() }]
+  });
+
+  return normalized;
+}
+
+/**
+ * Calls Gemini Models directly via @google/genai when deployed to GitHub Pages
+ * (using GEMINI_API_KEY / VITE_GEMINI_API_KEY injected at build time) and falls back to
+ * cloud AI inference so Lumi is always fast and intelligent on static hosts.
  */
 export async function fetchClientGeminiFlashAnswer(req: LumiLocalRequest): Promise<string | null> {
   const modeInstructions: Record<string, string> = {
     explain:
-      'Mode: Explain Simply. Break the concept down step-by-step using clear headings, everyday analogies, worked derivations/examples when relevant, and end with a line starting with "Lumi\'s Memory Trick: ".',
+      'Mode: Explain Simply. Break the concept down step-by-step using clear ## headings, everyday analogies, worked derivations/examples when relevant, and end with a line starting with "Lumi\'s Memory Trick: ".',
     solver:
       'Mode: Step-by-Step Solver. State the given quantities/definitions, write the exact formula, show every algebraic or numerical step clearly with units, and highlight the final answer.',
     exam:
       'Mode: Exam & NCERT Revision Coach. Provide the exact textbook derivation/definition, high-yield board exam points, common pitfalls to avoid, and end with "Lumi\'s Study Tip: ".',
     quiz:
-      'Mode: Interactive Quiz Coach. Ask 1 engaging question or evaluate the student\'s previous answer warmly and explain the solution.'
+      'Mode: Interactive Quiz Coach. Ask 1 engaging conceptual or numerical question with a helpful hint, or evaluate the student\'s previous answer warmly and explain the complete solution.'
   };
 
-  const systemPrompt = `You are Lumi, an encouraging NCERT & STEM tutor for ${req.gradeBand} (${req.subject}).
+  const systemPrompt = `You are Lumi, a warm, encouraging, and expert NCERT & STEM study owl inside "LearnSphere 3D" for ${req.gradeBand} (${req.subject}).
 ${modeInstructions[req.studyMode] || modeInstructions.explain}
-Keep your explanation clear, structured, and concise (120–220 words) using ## headings, bullet points (- ), and single backticks for formulas like \`s = (v² - u²) / (2a)\` (never use LaTeX $$ or \\frac).`;
+Formatting rules:
+- Use clean Markdown (## headings, bullet points with "- ", and **bold** key terms).
+- Format all equations and chemical formulas inside single backticks like \`s = (v² - u²) / (2a)\` or \`6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂\` (never use raw LaTeX $$ or \\frac).
+- Keep your response clear, accurate, and directly focused on the student's exact question (150–280 words).`;
 
-  // 1. Try Official @google/genai SDK with Gemini Free Flash Models ONLY if a real browser AIzaSy* key is configured
+  // 1. Official @google/genai SDK with full Gemini model cascade for GitHub Pages
   let apiKey = '';
   try {
     apiKey =
@@ -968,28 +1013,22 @@ Keep your explanation clear, structured, and concise (120–220 words) using ## 
     apiKey = '';
   }
 
-  if (apiKey && apiKey.trim().startsWith('AIza') && apiKey.trim().length >= 35) {
+  const trimmedKey = apiKey ? apiKey.trim() : '';
+  if (trimmedKey && trimmedKey.length > 10 && trimmedKey !== 'MY_GEMINI_API_KEY') {
     try {
       const ai = new GoogleGenAI({
-        apiKey: apiKey.trim()
+        apiKey: trimmedKey
       });
-      const contents = [
-        ...req.history.slice(-4).map((turn) => ({
-          role: turn.role,
-          parts: [{ text: turn.text.slice(0, 400) }]
-        })),
-        {
-          role: 'user' as const,
-          parts: [{ text: req.message.trim() }]
-        }
-      ];
+      const contents = buildValidGeminiContents(req.history, req.message);
 
-      const freeGeminiModels = [
+      const geminiModels = [
+        'gemini-3.8-flash',
+        'gemini-flash-latest',
+        'gemini-3.1-flash-lite',
         'gemini-2.5-flash',
-        'gemini-3-flash-preview',
-        'gemini-flash-latest'
+        'gemini-3-flash-preview'
       ];
-      for (const modelName of freeGeminiModels) {
+      for (const modelName of geminiModels) {
         try {
           const response = await ai.models.generateContent({
             model: modelName,
@@ -1003,11 +1042,11 @@ Keep your explanation clear, structured, and concise (120–220 words) using ## 
             return cleanAIMathFormatting(response.text.trim());
           }
         } catch {
-          // Try next free Gemini Flash model
+          // Try next Gemini model in cascade
         }
       }
     } catch {
-      // Fall through to zero-key cloud AI relay
+      // Fall through to secondary cloud AI relay
     }
   }
 
@@ -1249,7 +1288,39 @@ Lumi's Study Tip: In board exams, always write "Difference Between" answers in a
             .map((s) => `- ${cleanAIMathFormatting(s)}`)
             .join('\n');
 
-    return `## ${firstPage?.title || bestResult.title} (${req.subject} · ${req.gradeBand})
+    const articleTitle = firstPage?.title || bestResult.title;
+
+    if (req.studyMode === 'quiz') {
+      return `## Practice Quiz: ${articleTitle} (${req.subject} · ${req.gradeBand})
+
+Let's test your understanding of **${articleTitle}**!
+
+### Concept Recap:
+${cleanAIMathFormatting(leadParagraph.split(/(?<=\.)\s+/).slice(0, 2).join(' '))}
+
+### Your Quiz Question:
+1. **Explain the primary scientific principle behind ${articleTitle} in your own words, and give one key characteristic, formula, or real-world application.**
+- *Hint*: Think about ${cleanAIMathFormatting(additionalSentences[0] || leadParagraph.split(/(?<=\.)\s+/)[1] || articleTitle)}.
+
+Lumi's Study Tip: Reply with your answer below and I'll review it step-by-step!`;
+    }
+
+    if (req.studyMode === 'solver') {
+      return `## Step-by-Step Analysis: ${articleTitle} (${req.subject} · ${req.gradeBand})
+
+### Step 1 — Core Definition & Given Principle:
+${cleanAIMathFormatting(leadParagraph)}
+
+### Step 2 — Governing Relationships & Mechanism:
+${keyPointsBullets || `- **${articleTitle}** operates according to fundamental ${req.subject} conservation and interaction laws.`}
+
+### Step 3 — Verification & SI Units Check:
+- Always express all quantities in standard SI units (meters, kilograms, seconds, moles, Kelvin, or Amperes) when solving numerical problems on **${articleTitle}**.
+
+Lumi's Study Tip: Have a specific numerical problem on **${articleTitle}**? Paste the numbers into chat and I'll calculate the exact step-by-step answer!`;
+    }
+
+    return `## ${articleTitle} (${req.subject} · ${req.gradeBand})
 
 ${cleanAIMathFormatting(leadParagraph)}
 
@@ -1259,10 +1330,10 @@ ${
     : ''
 }
 ### How to Write This in Your Exam:
-- **Core Definition**: Start your answer with a clear 1–2 sentence definition of **${firstPage?.title || cleanTopic}**.
+- **Core Definition**: Start your answer with a clear 1–2 sentence definition of **${articleTitle}**.
 - **Formula / Mechanism**: State the governing law, equation, or biological/chemical pathway clearly with SI units.
 
-Lumi's Study Tip: Click **Save to Study Notes** below to add this explanation of **${firstPage?.title || cleanTopic}** directly to your revision notebook!`;
+Lumi's Study Tip: Click **Save to Study Notes** below to add this explanation of **${articleTitle}** directly to your revision notebook!`;
   } catch {
     return null;
   }
