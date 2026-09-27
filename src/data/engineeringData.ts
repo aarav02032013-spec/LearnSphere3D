@@ -3,54 +3,54 @@ import { AdvancedMachine } from '../types';
 export const ADVANCED_MACHINES: AdvancedMachine[] = [
   {
     id: 'ev_powertrain',
-    name: 'Next-Gen Electric Vehicle Powertrain',
+    name: 'Next-Gen Hybrid-Electric Automotive Powertrain',
     category: 'Automotive',
-    subtitle: 'Dual Permanent Magnet Synchronous Motors & 800V Structural Battery Architecture',
-    description: 'A complete rolling chassis of an advanced electric vehicle featuring front and rear axial-flux motors, Silicon Carbide (SiC) inverters, structural battery pack, double-wishbone active suspension, and regenerative braking.',
+    subtitle: 'Longitudinal Hybrid Transmission, Offset HV Lithium Pack & Cast Multi-Link Subframes',
+    description: 'A complete rolling automotive chassis featuring a front longitudinal engine with integrated hybrid motor-generator, multi-speed planetary transmission, central carbon driveshaft, offset high-voltage lithium-ion battery pack, bright orange high-voltage wiring harness, and cast-aluminum multi-link suspension subframes.',
     renderType: 'ev_powertrain',
     specifications: [
-      { label: 'System Voltage', value: '800V Architecture' },
-      { label: 'Combined Power', value: '750 kW (1,006 hp)' },
-      { label: 'Max Motor RPM', value: '21,500 RPM' },
-      { label: 'Battery Capacity', value: '102 kWh (4680 Cells)' },
-      { label: 'Peak Efficiency', value: '97.4% (SiC Inverter)' },
-      { label: 'Regen Braking Power', value: 'Up to 300 kW' }
+      { label: 'HV Bus Architecture', value: '800V Orange Shielded Harness' },
+      { label: 'Combined Output', value: '750 kW (1,006 hp)' },
+      { label: 'Drivetrain Layout', value: 'Longitudinal AWD + E-Axle' },
+      { label: 'HV Battery Pack', value: 'Offset Structural Li-Ion Pack' },
+      { label: 'Suspension Chassis', value: 'Die-Cast Aluminum Multi-Link' },
+      { label: 'Peak Inverter Efficiency', value: '97.4% (SiC Power Module)' }
     ],
     components: [
       {
-        id: 'rear_motor',
-        name: 'Rear High-Torque Axial Motor',
-        role: 'Primary Propulsion',
-        detail: 'Oil-cooled permanent magnet synchronous motor delivering 450 kW with planetary differential gearbox.',
-        position: [0, 0.2, -1.4]
+        id: 'front_motor',
+        name: 'Front Hybrid Engine & Longitudinal Transmission',
+        role: 'Primary Front Powertrain & E-Motor Assist',
+        detail: 'Features a ribbed acoustic composite intake cover over an aluminum cylinder block, paired with a longitudinal die-cast aluminum hybrid planetary transmission and integrated starter-generator.',
+        position: [1.35, 0.15, 0]
       },
       {
         id: 'battery_pack',
-        name: 'Structural Lithium-Ion Pack',
-        role: 'Energy Storage & Rigidity',
-        detail: 'Integrated floor-pan enclosure with 4680 cylindrical cells and serpentined glycol cooling channels.',
-        position: [0, -0.2, 0]
+        name: 'Offset High-Voltage Lithium-Ion Battery Pack',
+        role: 'High-Density Energy Storage Module',
+        detail: 'Heavy-duty dark anthracite stamped steel enclosure mounted alongside the central driveshaft tunnel, complete with structural stiffening ribs, perimeter bolt flanges, and dual HV orange terminal feeds.',
+        position: [-0.15, -0.05, 0.58]
       },
       {
         id: 'inverter',
-        name: 'Silicon Carbide (SiC) Inverter',
-        role: 'DC to 3-Phase AC Modulation',
-        detail: 'Switches high voltages at 40 kHz with ultra-low thermal dissipation and rapid field-oriented control (FOC).',
-        position: [0, 0.4, -0.7]
+        name: 'High-Voltage Orange Harness & Power Electronics',
+        role: 'HV Power Distribution & SiC Inverter Control',
+        detail: 'Shielded bright-orange high-voltage power cables and dual-line conduits routing DC/AC power between the offset battery pack, rear power control unit, and front hybrid transmission.',
+        position: [0.2, 0.25, -0.45]
       },
       {
-        id: 'front_motor',
-        name: 'Front Induction Assist Motor',
-        role: 'Torque Vectoring & AWD Launch',
-        detail: 'Secondary 300 kW motor decoupled at cruising speeds to eliminate parasitic drag.',
-        position: [0, 0.2, 1.4]
+        id: 'rear_motor',
+        name: 'Rear Cast Subframe, Driveshaft & Exhaust System',
+        role: 'Rear Axle Torque Delivery & Acoustic Exhaust',
+        detail: 'Sculpted cast-aluminum rear multi-link cradle housing the rear differential, driven by the central propeller shaft, paired with a stainless-steel catalytic exhaust and rear transverse dual-exit muffler.',
+        position: [-1.45, 0.1, 0]
       },
       {
         id: 'suspension_brakes',
-        name: 'Active Air Suspension & Ceramic Brakes',
-        role: 'Kinetic Energy Recapture & Ride Dynamics',
-        detail: 'Electronically modulated dampers synchronized with hydraulic regenerative blended braking.',
-        position: [1.2, 0.1, 1.2]
+        name: 'Cast Double-Wishbone Suspension & Wide Radial Tires',
+        role: 'Chassis Dynamics, Steering & Regenerative Braking',
+        detail: 'Forged aluminum upper A-arms, coil-over dampers, ventilated disc brake rotors with calipers, and wide high-grip treaded performance radial tires at all four corners.',
+        position: [1.25, 0.0, 1.05]
       }
     ]
   },
