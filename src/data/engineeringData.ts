@@ -58,52 +58,52 @@ export const ADVANCED_MACHINES: AdvancedMachine[] = [
     id: 'jet_engine',
     name: 'High-Bypass Turbofan Jet Engine',
     category: 'Aerospace',
-    subtitle: 'Geared Turbofan with Carbon-Titanium Composite Fan & Superalloy Core',
-    description: 'An aerospace propulsion engine operating on the Brayton thermodynamic cycle. Compresses incoming air, mixes with atomized jet fuel in an annular combustor, drives high-pressure turbines, and produces up to 350 kN of thrust.',
+    subtitle: 'Swept Titanium Fan, Blue Acoustic Intake, FADEC/AGB Harness & Ribbed LPT Barrel',
+    description: 'A modern high-bypass commercial aerospace turbofan featuring a brushed titanium fan containment barrel with a royal-blue acoustic intake liner, 22 wide-chord swept scimitar fan blades, side-mounted FADEC electronics with red/blue aerospace harnesses, an under-slung chromate accessory gearbox (AGB), a narrow high-pressure core wrapped in stainless bleed-air manifolds, and a heavily ribbed low-pressure turbine (LPT) casing.',
     renderType: 'jet_engine',
     specifications: [
       { label: 'Bypass Ratio', value: '12.5 : 1 (Ultra-High)' },
       { label: 'Takeoff Thrust', value: '350 kN (78,600 lbf)' },
-      { label: 'Fan Diameter', value: '3.15 meters (124 in)' },
-      { label: 'Combustion Temp', value: '1,720 °C (Turbine Inlet)' },
+      { label: 'Fan Diameter', value: '3.15 meters (22 Swept Blades)' },
+      { label: 'Core & LPT Casing', value: 'Inconel Manifolds & 14-Rib LPT' },
       { label: 'Overall Pressure Ratio', value: '50 : 1' },
-      { label: 'Core Speed (N2)', value: '14,200 RPM' }
+      { label: 'Control Architecture', value: 'Dual-Channel FADEC + AGB' }
     ],
     components: [
       {
         id: 'titanium_fan',
-        name: 'Composite Swept Fan Blades',
-        role: 'Mass Flow & Cold Bypass Thrust',
-        detail: '18 wide-chord 3D carbon-fiber blades with titanium leading edges generating 85% of total sea-level thrust.',
-        position: [0, 0, 1.6]
+        name: 'Swept Titanium Fan & Blue Acoustic Intake Case',
+        role: 'Primary Bypass Mass Flow & Acoustic Attenuation',
+        detail: '22 wide-chord 3D-swept titanium-composite fan blades with a bi-metallic spinner cone, housed inside a brushed titanium containment barrel lined with a cobalt-blue acoustic honeycomb ring.',
+        position: [0, 0.1, 1.35]
       },
       {
         id: 'compressors',
-        name: 'High-Pressure Axial Compressor',
-        role: 'Aerodynamic Fluid Compression',
-        detail: 'Multi-stage bladed disks (blisks) accelerating and pressurizing core air up to 50 times atmospheric pressure.',
-        position: [0, 0, 0.6]
+        name: 'FADEC Units, Harnesses & Accessory Gearbox (AGB)',
+        role: 'Electronic Engine Control, Ignition & Hydraulic/Fuel Drive',
+        detail: 'Case-mounted anthracite FADEC control boxes, color-coded crimson-red ignition/fire loops and cobalt-blue sensor harnesses, and an under-slung yellow-chromate cast accessory gearbox with red anodized manifold caps.',
+        position: [1.15, -0.45, 0.75]
       },
       {
         id: 'combustor',
-        name: 'Annular Combustion Chamber',
-        role: 'Isobaric Heat Addition',
-        detail: 'Ceramic thermal-barrier coated liners with swirl fuel nozzles where Jet A-1 burns at stoichiometric peaks.',
-        position: [0, 0, -0.3]
+        name: 'High-Pressure Core & Stainless Bleed-Air Manifolds',
+        role: '50:1 Axial Compression, Isobaric Combustion & Air Routing',
+        detail: 'Narrow-waist high-pressure compressor and annular combustor core densely wrapped in polished stainless-steel S-bend bleed-air ducts, fuel rail manifolds, and variable stator vane (VSV) actuators.',
+        position: [0.55, 0.1, -0.25]
       },
       {
         id: 'turbine',
-        name: 'Single-Crystal HP Turbine',
-        role: 'Work Extraction for Shaft Drive',
-        detail: 'Internally air-cooled nickel superalloy blades extracting thousands of horsepower to spin compressor shafts.',
-        position: [0, 0, -0.9]
+        name: 'Ribbed Low-Pressure Turbine (LPT) Barrel Casing',
+        role: 'Multi-Stage Shaft Work Extraction & Thermal Containment',
+        detail: 'Flared superalloy turbine drum featuring 14 closely spaced circumferential stiffening/cooling ribs and axial tie-strakes enclosing multi-stage single-crystal turbine rotors.',
+        position: [0.65, 0.25, -1.25]
       },
       {
         id: 'exhaust_nozzle',
-        name: 'Convergent-Divergent Exhaust Nozzle',
-        role: 'Sonic Gas Acceleration',
-        detail: 'Exhaust cone shaping core flow to maximize momentum velocity discharge according to Newton’s 3rd Law.',
-        position: [0, 0, -1.7]
+        name: 'Turbine Exhaust Frame & Core Thrust Nozzle',
+        role: 'Core Gas Expansion & High-Velocity Momentum Discharge',
+        detail: 'Rear structural turbine exhaust frame with deswirl exit guide vanes and convergent core nozzle cone accelerating hot exhaust gases.',
+        position: [0, 0, -1.85]
       }
     ]
   },

@@ -58,6 +58,8 @@ export const AdvancedLabRenderer: React.FC<AdvancedLabRendererProps> = ({
     );
     if (renderType === 'ev_powertrain') {
       camera.position.set(0, 3.65, 1.85);
+    } else if (renderType === 'jet_engine') {
+      camera.position.set(2.75, 0.55, 2.35);
     } else {
       camera.position.set(2.8, 2.0, 4.2);
     }
@@ -321,8 +323,14 @@ export const AdvancedLabRenderer: React.FC<AdvancedLabRendererProps> = ({
     const handleNativeWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!cameraRef.current) return;
-      cameraRef.current.position.z = Math.max(1.8, Math.min(8.0, cameraRef.current.position.z + e.deltaY * 0.002));
+      const cam = cameraRef.current;
+      if (!cam) return;
+      const currentDist = cam.position.length();
+      if (currentDist > 0.001) {
+        const nextDist = Math.max(1.8, Math.min(9.0, currentDist + e.deltaY * 0.003));
+        cam.position.setLength(nextDist);
+        cam.lookAt(0, 0, 0);
+      }
     };
     el.addEventListener('wheel', handleNativeWheel, { passive: false });
     return () => {
@@ -902,129 +910,529 @@ function buildEVChassis(group: THREE.Group, wheelsRef: React.MutableRefObject<TH
   });
 }
 
-// 2. High-Bypass Turbofan Jet Engine
+// 2. High-Bypass Turbofan Jet Engine (Matching Reference Image)
 function buildJetTurbofan(
   group: THREE.Group,
   fanRef: React.MutableRefObject<THREE.Group | null>,
   flameRef: React.MutableRefObject<THREE.Mesh | null>
 ) {
-  // Outer Nacelle Cowling (Cutaway view)
-  const cowlGeom = new THREE.CylinderGeometry(1.4, 1.25, 3.4, 32, 1, true, 0, Math.PI * 1.55);
-  const cowlMat = new THREE.MeshStandardMaterial({
-    color: 0x334155,
-    metalness: 0.8,
-    roughness: 0.25,
+  // Shared Aerospace PBR Materials
+  const brushedTitaniumMat = new THREE.MeshStandardMaterial({
+    color: 0x9aa5b4,
+    metalness: 0.86,
+    roughness: 0.24,
     side: THREE.DoubleSide
   });
-  const cowl = new THREE.Mesh(cowlGeom, cowlMat);
-  cowl.rotation.x = Math.PI / 2;
-  group.add(cowl);
-
-  // Rotating Swept Fan Blades (Front)
-  const fanGroup = new THREE.Group();
-  fanGroup.name = 'comp_titanium_fan';
-  fanGroup.userData = { componentId: 'titanium_fan' };
-  fanGroup.position.set(0, 0, 1.5);
-
-  // Spinner cone
-  const coneGeom = new THREE.ConeGeometry(0.35, 0.7, 24);
-  const coneMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.1 });
-  const cone = new THREE.Mesh(coneGeom, coneMat);
-  cone.rotation.x = Math.PI / 2;
-  fanGroup.add(cone);
-
-  // 18 Titanium Fan Blades
-  for (let i = 0; i < 18; i++) {
-    const angle = (i / 18) * Math.PI * 2;
-    const bladeGeom = new THREE.BoxGeometry(0.12, 1.0, 0.03);
-    const bladeMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.1 });
-    const blade = new THREE.Mesh(bladeGeom, bladeMat);
-    blade.position.set(Math.cos(angle) * 0.65, Math.sin(angle) * 0.65, -0.1);
-    blade.rotation.z = angle;
-    blade.rotation.y = 0.45;
-    fanGroup.add(blade);
-  }
-  fanRef.current = fanGroup;
-  group.add(fanGroup);
-
-  // Compressor Stages (Core)
-  const compGroup = new THREE.Group();
-  compGroup.name = 'comp_compressors';
-  compGroup.userData = { componentId: 'compressors' };
-  const compGeom = new THREE.CylinderGeometry(0.65, 0.55, 1.0, 24);
-  const compMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.85, roughness: 0.2 });
-  const comp = new THREE.Mesh(compGeom, compMat);
-  comp.rotation.x = Math.PI / 2;
-  comp.position.set(0, 0, 0.5);
-  compGroup.add(comp);
-  group.add(compGroup);
-
-  // Annular Combustor Chamber (Orange Glow)
-  const combustGroup = new THREE.Group();
-  combustGroup.name = 'comp_combustor';
-  combustGroup.userData = { componentId: 'combustor' };
-  const combGeom = new THREE.CylinderGeometry(0.55, 0.5, 0.6, 24);
-  const combMat = new THREE.MeshStandardMaterial({
-    color: 0xf97316,
-    emissive: 0xe11d48,
-    emissiveIntensity: 0.6,
-    roughness: 0.4
+  const polishedSteelMat = new THREE.MeshStandardMaterial({
+    color: 0xd8dee9,
+    metalness: 0.92,
+    roughness: 0.16,
+    side: THREE.DoubleSide
   });
-  const combust = new THREE.Mesh(combGeom, combMat);
-  combust.rotation.x = Math.PI / 2;
-  combust.position.set(0, 0, -0.3);
-  combustGroup.add(combust);
-  group.add(combustGroup);
+  const darkAlloyMat = new THREE.MeshStandardMaterial({
+    color: 0x475569,
+    metalness: 0.82,
+    roughness: 0.28,
+    side: THREE.DoubleSide
+  });
+  const fadecBoxMat = new THREE.MeshStandardMaterial({
+    color: 0x3f4652,
+    metalness: 0.55,
+    roughness: 0.42
+  });
+  const acousticBlueMat = new THREE.MeshStandardMaterial({
+    color: 0x1d4ed8,
+    metalness: 0.25,
+    roughness: 0.55,
+    side: THREE.DoubleSide
+  });
+  const chromateGoldMat = new THREE.MeshStandardMaterial({
+    color: 0xc8a951,
+    metalness: 0.68,
+    roughness: 0.32
+  });
+  const crimsonHarnessMat = new THREE.MeshStandardMaterial({
+    color: 0xef4444,
+    emissive: 0x991b1b,
+    emissiveIntensity: 0.22,
+    roughness: 0.32,
+    metalness: 0.15
+  });
+  const cobaltHarnessMat = new THREE.MeshStandardMaterial({
+    color: 0x2563eb,
+    roughness: 0.35,
+    metalness: 0.2
+  });
+  const spinnerDarkMat = new THREE.MeshStandardMaterial({
+    color: 0x1e242d,
+    metalness: 0.75,
+    roughness: 0.22
+  });
+  const spinnerTipMat = new THREE.MeshStandardMaterial({
+    color: 0xf1f5f9,
+    metalness: 0.65,
+    roughness: 0.2
+  });
 
-  // HP Turbine
-  const turbGroup = new THREE.Group();
-  turbGroup.name = 'comp_turbine';
-  turbGroup.userData = { componentId: 'turbine' };
-  const turbGeom = new THREE.CylinderGeometry(0.5, 0.45, 0.5, 24);
-  const turbMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9, roughness: 0.15 });
-  const turbine = new THREE.Mesh(turbGeom, turbMat);
-  turbine.rotation.x = Math.PI / 2;
-  turbine.position.set(0, 0, -0.85);
-  turbGroup.add(turbine);
-  group.add(turbGroup);
+  // ============================================================================
+  // SUBSYSTEM 1: SWEPT TITANIUM FAN, BLUE ACOUSTIC LINER & CONTAINMENT CASE (+Z)
+  // ============================================================================
+  const fanCaseSubsystem = new THREE.Group();
+  fanCaseSubsystem.name = 'comp_titanium_fan';
+  fanCaseSubsystem.userData = { componentId: 'titanium_fan' };
 
-  // Exhaust Nozzle & Flame
+  // Main Full-Circumference Brushed Titanium Fan Containment Barrel (z = 0.20 to 1.68)
+  const fanBarrelGeom = new THREE.CylinderGeometry(1.28, 1.26, 1.48, 48, 1, true);
+  const fanBarrel = new THREE.Mesh(fanBarrelGeom, brushedTitaniumMat);
+  fanBarrel.rotation.x = Math.PI / 2;
+  fanBarrel.position.set(0, 0, 0.94);
+  fanCaseSubsystem.add(fanBarrel);
+
+  // Polished Rounded Front Intake Lip Ring at z = 1.68
+  const intakeLip = new THREE.Mesh(
+    new THREE.TorusGeometry(1.25, 0.055, 20, 48),
+    polishedSteelMat
+  );
+  intakeLip.position.set(0, 0, 1.68);
+  fanCaseSubsystem.add(intakeLip);
+
+  // Signature Cobalt-Blue Inner Acoustic Liner Ring (visible inside intake throat)
+  const blueLinerGeom = new THREE.CylinderGeometry(1.22, 1.21, 0.56, 48, 1, true);
+  const blueLiner = new THREE.Mesh(blueLinerGeom, acousticBlueMat);
+  blueLiner.rotation.x = Math.PI / 2;
+  blueLiner.position.set(0, 0, 1.38);
+  fanCaseSubsystem.add(blueLiner);
+
+  // Dark Inner Containment Ring behind Fan Blades
+  const innerShroudGeom = new THREE.CylinderGeometry(1.20, 1.16, 0.85, 48, 1, true);
+  const innerShroud = new THREE.Mesh(innerShroudGeom, darkAlloyMat);
+  innerShroud.rotation.x = Math.PI / 2;
+  innerShroud.position.set(0, 0, 0.68);
+  fanCaseSubsystem.add(innerShroud);
+
+  // Stepped Circumferential Stiffening Flanges on Fan Containment Barrel
+  [0.24, 0.38, 0.55, 0.98, 1.52].forEach((zRing, rIdx) => {
+    const flange = new THREE.Mesh(
+      new THREE.TorusGeometry(rIdx < 3 ? 1.29 : 1.285, rIdx === 1 ? 0.035 : 0.022, 14, 48),
+      rIdx % 2 === 0 ? polishedSteelMat : darkAlloyMat
+    );
+    flange.position.set(0, 0, zRing);
+    fanCaseSubsystem.add(flange);
+  });
+
+  // Axial Structural Mounting Straps on Outer Fan Barrel (seen in reference photo)
+  [-0.28, 0.0, 0.28, 0.58, 1.15].forEach((ang) => {
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.11, 0.56), darkAlloyMat);
+    const rad = 1.29;
+    strap.position.set(Math.cos(ang) * rad, Math.sin(ang) * rad, 1.22);
+    strap.rotation.z = ang;
+    fanCaseSubsystem.add(strap);
+  });
+
+  // 36 Stationary Outlet Guide Vanes (OGVs) behind the rotating fan
+  for (let i = 0; i < 36; i++) {
+    const ang = (i / 36) * Math.PI * 2;
+    const ogv = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.68, 0.09), darkAlloyMat);
+    ogv.position.set(Math.cos(ang) * 0.82, Math.sin(ang) * 0.82, 0.62);
+    ogv.rotation.z = ang;
+    fanCaseSubsystem.add(ogv);
+  }
+
+  // Rotating Fan Rotor Group (22 Wide-Chord Swept Blades + Bi-Metallic Spinner Cone)
+  const rotatingFanGroup = new THREE.Group();
+  rotatingFanGroup.position.set(0, 0, 1.18);
+
+  // Dark Anthracite Spinner Base Cone
+  const spinnerBase = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.14, 0.38, 0.38, 32),
+    spinnerDarkMat
+  );
+  spinnerBase.rotation.x = Math.PI / 2;
+  spinnerBase.position.set(0, 0, 0.16);
+  rotatingFanGroup.add(spinnerBase);
+
+  // Bright Silver-White Conical Spinner Nose Tip (Matches reference photo)
+  const spinnerTip = new THREE.Mesh(
+    new THREE.ConeGeometry(0.14, 0.22, 32),
+    spinnerTipMat
+  );
+  spinnerTip.rotation.x = Math.PI / 2;
+  spinnerTip.position.set(0, 0, 0.46);
+  rotatingFanGroup.add(spinnerTip);
+
+  // Hub disk holding the 22 fan blades
+  const fanDisk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.38, 0.42, 0.24, 32),
+    spinnerDarkMat
+  );
+  fanDisk.rotation.x = Math.PI / 2;
+  fanDisk.position.set(0, 0, -0.05);
+  rotatingFanGroup.add(fanDisk);
+
+  // 22 Wide-Chord 3D-Swept Scimitar Titanium Fan Blades
+  const numBlades = 22;
+  for (let i = 0; i < numBlades; i++) {
+    const angle = (i / numBlades) * Math.PI * 2;
+    const bladeHolder = new THREE.Group();
+    bladeHolder.rotation.z = angle;
+
+    // Dark root dovetail platform
+    const bladeRoot = new THREE.Mesh(
+      new THREE.BoxGeometry(0.09, 0.22, 0.14),
+      spinnerDarkMat
+    );
+    bladeRoot.position.set(0, 0.44, 0.0);
+    bladeRoot.rotation.y = 0.52;
+    bladeHolder.add(bladeRoot);
+
+    // Wide-chord swept metallic titanium airfoil
+    const bladeMain = new THREE.Mesh(
+      new THREE.BoxGeometry(0.22, 0.76, 0.024),
+      polishedSteelMat
+    );
+    bladeMain.position.set(0.02, 0.79, 0.03);
+    bladeMain.rotation.y = 0.62;
+    bladeMain.rotation.x = -0.12;
+    bladeHolder.add(bladeMain);
+
+    // Swept leading-edge tip twist
+    const bladeTip = new THREE.Mesh(
+      new THREE.BoxGeometry(0.25, 0.24, 0.02),
+      brushedTitaniumMat
+    );
+    bladeTip.position.set(-0.02, 1.06, 0.06);
+    bladeTip.rotation.y = 0.74;
+    bladeTip.rotation.z = 0.12;
+    bladeHolder.add(bladeTip);
+
+    rotatingFanGroup.add(bladeHolder);
+  }
+
+  fanRef.current = rotatingFanGroup;
+  fanCaseSubsystem.add(rotatingFanGroup);
+  group.add(fanCaseSubsystem);
+
+  // ============================================================================
+  // SUBSYSTEM 2: FADEC CONTROL BOXES, HARNESSES & ACCESSORY GEARBOX (AGB)
+  // ============================================================================
+  const agbHarnessGroup = new THREE.Group();
+  agbHarnessGroup.name = 'comp_compressors';
+  agbHarnessGroup.userData = { componentId: 'compressors' };
+
+  // Upper & Mid-Side Anthracite FADEC / EEC Control Boxes on Fan Case (+X side)
+  const fadecUpper = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.34, 0.28), fadecBoxMat);
+  fadecUpper.position.set(1.26, 0.38, 0.74);
+  fadecUpper.rotation.z = -0.28;
+  agbHarnessGroup.add(fadecUpper);
+
+  const fadecLower = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.32, 0.32), fadecBoxMat);
+  fadecLower.position.set(1.31, -0.08, 0.72);
+  fadecLower.rotation.z = 0.06;
+  agbHarnessGroup.add(fadecLower);
+
+  // Red circular diagnostic/pressure port on lower FADEC box (seen in photo)
+  const redPort = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.032, 0.032, 0.04, 16),
+    crimsonHarnessMat
+  );
+  redPort.rotation.z = Math.PI / 2;
+  redPort.position.set(1.39, -0.02, 0.64);
+  agbHarnessGroup.add(redPort);
+
+  // Side Ignition Exciter & Sensor Junction Boxes
+  const ignBox = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.20), darkAlloyMat);
+  ignBox.position.set(1.04, 0.82, 0.82);
+  ignBox.rotation.z = -0.68;
+  agbHarnessGroup.add(ignBox);
+
+  // Under-Slung Yellow-Chromate / Gold Cast-Aluminum Accessory Gearbox (AGB) at Bottom-Front
+  const agbHousingCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(1.12, -0.68, 0.65),
+    new THREE.Vector3(0.92, -1.08, 0.72),
+    new THREE.Vector3(0.58, -1.38, 0.82),
+    new THREE.Vector3(0.18, -1.48, 0.85)
+  ]);
+  const agbMainBody = new THREE.Mesh(
+    new THREE.TubeGeometry(agbHousingCurve, 20, 0.17, 14, false),
+    chromateGoldMat
+  );
+  agbHarnessGroup.add(agbMainBody);
+
+  // Cast Gearbox Sump & Starter/Pump Cylinders protruding forward-downward
+  const starterMotor = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.13, 0.14, 0.46, 20),
+    brushedTitaniumMat
+  );
+  starterMotor.rotation.x = Math.PI / 2;
+  starterMotor.rotation.y = -0.18;
+  starterMotor.position.set(0.46, -1.32, 1.05);
+  agbHarnessGroup.add(starterMotor);
+
+  // Crimson-Red Anodized Hydraulic/Fuel Caps & Manifolds on the Accessory Gearbox
+  [
+    [0.40, -1.32, 1.28, 0.065],
+    [0.54, -1.48, 1.12, 0.075],
+    [0.86, -1.04, 0.92, 0.06],
+    [0.24, -1.52, 0.96, 0.055]
+  ].forEach(([rx, ry, rz, rRad]) => {
+    const redCap = new THREE.Mesh(
+      new THREE.CylinderGeometry(rRad, rRad, 0.11, 16),
+      crimsonHarnessMat
+    );
+    redCap.rotation.x = Math.PI / 2;
+    redCap.position.set(rx, ry, rz);
+    agbHarnessGroup.add(redCap);
+  });
+
+  // Bright Crimson-Red High-Temp Harnesses curving down Fan Case into AGB
+  const redCable1 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(1.22, 0.52, 0.62),
+    new THREE.Vector3(1.34, 0.18, 0.56),
+    new THREE.Vector3(1.36, -0.26, 0.58),
+    new THREE.Vector3(1.22, -0.68, 0.66),
+    new THREE.Vector3(0.95, -1.02, 0.78)
+  ]);
+  agbHarnessGroup.add(
+    new THREE.Mesh(new THREE.TubeGeometry(redCable1, 28, 0.022, 10, false), crimsonHarnessMat)
+  );
+
+  const redCable2 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(1.35, -0.18, 0.78),
+    new THREE.Vector3(1.28, -0.52, 0.84),
+    new THREE.Vector3(1.06, -0.88, 0.88),
+    new THREE.Vector3(0.74, -1.22, 0.96)
+  ]);
+  agbHarnessGroup.add(
+    new THREE.Mesh(new THREE.TubeGeometry(redCable2, 24, 0.02, 10, false), crimsonHarnessMat)
+  );
+
+  const redCable3 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(1.36, -0.16, 0.64),
+    new THREE.Vector3(1.34, -0.46, 0.54),
+    new THREE.Vector3(1.18, -0.78, 0.58),
+    new THREE.Vector3(0.98, -0.96, 0.68)
+  ]);
+  agbHarnessGroup.add(
+    new THREE.Mesh(new THREE.TubeGeometry(redCable3, 24, 0.018, 10, false), crimsonHarnessMat)
+  );
+
+  // Cobalt-Blue Sensor & Pneumatic Conduits wrapping from Top of Fan Case down to FADEC & AGB
+  const blueCable1 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.25, 1.29, 1.15),
+    new THREE.Vector3(0.78, 1.06, 1.02),
+    new THREE.Vector3(1.14, 0.68, 0.92),
+    new THREE.Vector3(1.32, 0.16, 0.88),
+    new THREE.Vector3(1.28, -0.38, 0.86),
+    new THREE.Vector3(1.05, -0.82, 0.86)
+  ]);
+  agbHarnessGroup.add(
+    new THREE.Mesh(new THREE.TubeGeometry(blueCable1, 32, 0.018, 10, false), cobaltHarnessMat)
+  );
+
+  const blueCable2 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.15, 1.30, 0.85),
+    new THREE.Vector3(0.48, 1.22, 0.78),
+    new THREE.Vector3(0.96, 0.92, 0.72),
+    new THREE.Vector3(1.26, 0.48, 0.68)
+  ]);
+  agbHarnessGroup.add(
+    new THREE.Mesh(new THREE.TubeGeometry(blueCable2, 24, 0.016, 10, false), cobaltHarnessMat)
+  );
+
+  // Braided Stainless Steel Hydraulic Conduits along Fan Case
+  [-0.06, 0.06].forEach((zOff) => {
+    const steelConduit = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.35, 1.26, 0.95 + zOff),
+      new THREE.Vector3(0.88, 0.98, 0.86 + zOff),
+      new THREE.Vector3(1.25, 0.52, 0.78 + zOff),
+      new THREE.Vector3(1.35, -0.05, 0.74 + zOff),
+      new THREE.Vector3(1.18, -0.65, 0.72 + zOff)
+    ]);
+    agbHarnessGroup.add(
+      new THREE.Mesh(new THREE.TubeGeometry(steelConduit, 28, 0.015, 8, false), polishedSteelMat)
+    );
+  });
+
+  group.add(agbHarnessGroup);
+
+  // ============================================================================
+  // SUBSYSTEM 3: NARROW HIGH-PRESSURE CORE & STAINLESS BLEED MANIFOLDS (Waist)
+  // ============================================================================
+  const coreGroup = new THREE.Group();
+  coreGroup.name = 'comp_combustor';
+  coreGroup.userData = { componentId: 'combustor' };
+
+  // Conical Transition Splitter from Fan Case to Narrow Core Waist
+  const splitterCone = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.98, 0.56, 0.36, 36),
+    darkAlloyMat
+  );
+  splitterCone.rotation.x = Math.PI / 2;
+  splitterCone.position.set(0, 0, 0.08);
+  coreGroup.add(splitterCone);
+
+  // Narrow High-Pressure Compressor (HPC) & Combustor Core Barrel (z = -0.82 to 0.0)
+  const coreBarrel = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.55, 0.58, 0.86, 36),
+    darkAlloyMat
+  );
+  coreBarrel.rotation.x = Math.PI / 2;
+  coreBarrel.position.set(0, 0, -0.38);
+  coreGroup.add(coreBarrel);
+
+  // Circumferential Stainless Steel Fuel & Bleed-Air Manifold Rings around Core Waist
+  [-0.05, -0.22, -0.38, -0.54, -0.70].forEach((zManifold, idx) => {
+    const manifoldRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.61 + (idx % 2) * 0.03, 0.024, 12, 36),
+      polishedSteelMat
+    );
+    manifoldRing.position.set(0, 0, zManifold);
+    coreGroup.add(manifoldRing);
+  });
+
+  // Signature Twin Parallel S-Bend Large Stainless Bleed-Air Ducts (Prominent in reference photo)
+  [-0.06, 0.06].forEach((yOff) => {
+    const bleedDuctCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.62, -0.18 + yOff, 0.02),
+      new THREE.Vector3(0.68, -0.14 + yOff, -0.24),
+      new THREE.Vector3(0.76, -0.02 + yOff, -0.48),
+      new THREE.Vector3(0.88, 0.04 + yOff, -0.72),
+      new THREE.Vector3(0.94, 0.04 + yOff, -0.98)
+    ]);
+    const bleedDuct = new THREE.Mesh(
+      new THREE.TubeGeometry(bleedDuctCurve, 28, 0.042, 12, false),
+      polishedSteelMat
+    );
+    coreGroup.add(bleedDuct);
+
+    // Machined flange couplings on the S-bend bleed ducts
+    [-0.24, -0.68].forEach((zClamp) => {
+      const clamp = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.055, 0.055, 0.04, 14),
+        darkAlloyMat
+      );
+      clamp.rotation.x = Math.PI / 2;
+      clamp.position.set(zClamp === -0.24 ? 0.68 : 0.86, -0.08 + yOff, zClamp);
+      coreGroup.add(clamp);
+    });
+  });
+
+  // Intricate Multi-Branch Stainless Steel Piping & Actuator Network around Core
+  for (let p = 0; p < 8; p++) {
+    const ang1 = (p / 8) * Math.PI * 2;
+    const ang2 = ang1 + 0.45;
+    const rPipe = 0.64;
+    const pipeCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(Math.cos(ang1) * rPipe, Math.sin(ang1) * rPipe, 0.02),
+      new THREE.Vector3(Math.cos((ang1 + ang2) * 0.5) * (rPipe + 0.05), Math.sin((ang1 + ang2) * 0.5) * (rPipe + 0.05), -0.36),
+      new THREE.Vector3(Math.cos(ang2) * (rPipe + 0.08), Math.sin(ang2) * (rPipe + 0.08), -0.74)
+    ]);
+    coreGroup.add(
+      new THREE.Mesh(new THREE.TubeGeometry(pipeCurve, 20, 0.018, 8, false), polishedSteelMat)
+    );
+
+    // Valve bosses & VSV actuator cylinders on core casing
+    const boss = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.038, 0.038, 0.14, 12),
+      brushedTitaniumMat
+    );
+    boss.position.set(Math.cos(ang1) * 0.62, Math.sin(ang1) * 0.62, -0.28);
+    boss.rotation.z = ang1 + Math.PI / 2;
+    coreGroup.add(boss);
+  }
+
+  group.add(coreGroup);
+
+  // ============================================================================
+  // SUBSYSTEM 4: RIBBED LOW-PRESSURE TURBINE (LPT) BARREL CASING (Rear Drum)
+  // ============================================================================
+  const lptGroup = new THREE.Group();
+  lptGroup.name = 'comp_turbine';
+  lptGroup.userData = { componentId: 'turbine' };
+
+  // Main Flared LPT Drum (z = -1.72 to -0.76)
+  const lptDrumGeom = new THREE.CylinderGeometry(0.76, 0.92, 0.96, 40);
+  const lptDrum = new THREE.Mesh(lptDrumGeom, darkAlloyMat);
+  lptDrum.rotation.x = Math.PI / 2;
+  lptDrum.position.set(0, 0, -1.24);
+  lptGroup.add(lptDrum);
+
+  // 13 Closely-Spaced Circumferential Metallic Cooling/Stiffening Flange Ribs (Signature feature on right of photo)
+  const numRibs = 13;
+  for (let r = 0; r < numRibs; r++) {
+    const t = r / (numRibs - 1);
+    const zPos = -0.78 - t * 0.88;
+    // Barrel profile: flares quickly from 0.78 to 0.95 then tapers slightly to 0.84 at rear
+    const profileRad = 0.78 + Math.sin(t * Math.PI * 0.82) * 0.17;
+    const ribTorus = new THREE.Mesh(
+      new THREE.TorusGeometry(profileRad, 0.022, 12, 44),
+      r % 2 === 0 ? polishedSteelMat : brushedTitaniumMat
+    );
+    ribTorus.position.set(0, 0, zPos);
+    lptGroup.add(ribTorus);
+  }
+
+  // Axial Longitudinal Strakes & Tie-Rods crossing the LPT Circumferential Ribs
+  const numStrakes = 16;
+  for (let s = 0; s < numStrakes; s++) {
+    const ang = (s / numStrakes) * Math.PI * 2;
+    const strakeCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(Math.cos(ang) * 0.79, Math.sin(ang) * 0.79, -0.78),
+      new THREE.Vector3(Math.cos(ang) * 0.96, Math.sin(ang) * 0.96, -1.18),
+      new THREE.Vector3(Math.cos(ang) * 0.86, Math.sin(ang) * 0.86, -1.66)
+    ]);
+    const strakeMesh = new THREE.Mesh(
+      new THREE.TubeGeometry(strakeCurve, 16, 0.016, 8, false),
+      s % 3 === 0 ? polishedSteelMat : darkAlloyMat
+    );
+    lptGroup.add(strakeMesh);
+  }
+
+  // Rear LPT Structural Mounting Flange Ring with Bolt Bosses
+  const rearFlange = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.84, 0.78, 0.14, 40),
+    brushedTitaniumMat
+  );
+  rearFlange.rotation.x = Math.PI / 2;
+  rearFlange.position.set(0, 0, -1.72);
+  lptGroup.add(rearFlange);
+
+  group.add(lptGroup);
+
+  // ============================================================================
+  // SUBSYSTEM 5: TURBINE EXHAUST FRAME, CORE NOZZLE & THRUST PLUME (-Z)
+  // ============================================================================
   const exhGroup = new THREE.Group();
   exhGroup.name = 'comp_exhaust_nozzle';
   exhGroup.userData = { componentId: 'exhaust_nozzle' };
-  const exhConeGeom = new THREE.ConeGeometry(0.45, 0.9, 24);
-  const exhMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7 });
-  const exhCone = new THREE.Mesh(exhConeGeom, exhMat);
-  exhCone.rotation.x = -Math.PI / 2;
-  exhCone.position.set(0, 0, -1.6);
+
+  const exhConeGeom = new THREE.CylinderGeometry(0.42, 0.76, 0.38, 36);
+  const exhCone = new THREE.Mesh(exhConeGeom, darkAlloyMat);
+  exhCone.rotation.x = Math.PI / 2;
+  exhCone.position.set(0, 0, -1.92);
   exhGroup.add(exhCone);
 
-  // Afterburner Flame plume with Supersonic Shock Diamonds
-  const flameGeom = new THREE.ConeGeometry(0.38, 1.4, 16);
+  // Inner Centerbody Exhaust Plug Cone
+  const plugCone = new THREE.Mesh(
+    new THREE.ConeGeometry(0.32, 0.55, 28),
+    spinnerDarkMat
+  );
+  plugCone.rotation.x = -Math.PI / 2;
+  plugCone.position.set(0, 0, -2.08);
+  exhGroup.add(plugCone);
+
+  // Dynamic Mach Thrust Plume (scales with RPM / Throttle slider)
+  const flameGeom = new THREE.ConeGeometry(0.36, 1.25, 24);
   const flameMat = new THREE.MeshBasicMaterial({
     color: 0x38bdf8,
     transparent: true,
-    opacity: 0.85
+    opacity: 0.75
   });
   const flame = new THREE.Mesh(flameGeom, flameMat);
   flame.rotation.x = -Math.PI / 2;
-  flame.position.set(0, 0, -2.5);
+  flame.position.set(0, 0, -2.65);
   flameRef.current = flame;
   exhGroup.add(flame);
-
-  // Shock diamond rings inside flame
-  for (let s = 1; s <= 3; s++) {
-    const diamondGeom = new THREE.RingGeometry(0.08 * s, 0.12 * s, 16);
-    const diamondMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.8
-    });
-    const diamond = new THREE.Mesh(diamondGeom, diamondMat);
-    diamond.position.set(0, 0, -1.8 - s * 0.35);
-    exhGroup.add(diamond);
-  }
 
   group.add(exhGroup);
 }
@@ -1252,14 +1660,17 @@ function updateExplodedOffsets(group: THREE.Group, renderType: string, factor: n
     if (inv) inv.position.y = factor * 0.65;
   } else if (renderType === 'jet_engine') {
     const fan = group.getObjectByName('comp_titanium_fan');
-    if (fan) fan.position.z = 1.5 + factor * 1.2;
+    if (fan) fan.position.z = factor * 0.85;
     const comp = group.getObjectByName('comp_compressors');
-    if (comp) comp.position.z = 0.5 + factor * 0.4;
+    if (comp) {
+      comp.position.x = factor * 0.55;
+      comp.position.y = -factor * 0.35;
+    }
     const comb = group.getObjectByName('comp_combustor');
-    if (comb) comb.position.z = -0.3 - factor * 0.4;
+    if (comb) comb.position.z = 0;
     const turb = group.getObjectByName('comp_turbine');
-    if (turb) turb.position.z = -0.85 - factor * 0.8;
+    if (turb) turb.position.z = -factor * 0.65;
     const exh = group.getObjectByName('comp_exhaust_nozzle');
-    if (exh) exh.position.z = -factor * 1.2;
+    if (exh) exh.position.z = -factor * 1.25;
   }
 }
