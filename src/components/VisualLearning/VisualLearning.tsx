@@ -8,6 +8,7 @@ import {
 import { Pinpoint } from '../../types';
 import { NCERT3DCanvas } from './NCERT3DCanvas';
 import { MicroscopyLab } from './MicroscopyLab';
+import { HumanBodyZoomExplorer } from './HumanBodyZoomExplorer';
 import { MICROSCOPY_SLIDES } from '../../data/microscopyData';
 import confetti from 'canvas-confetti';
 import { 
@@ -26,7 +27,8 @@ import {
   FileText,
   Sliders,
   Check,
-  Trophy
+  Trophy,
+  ZoomIn
 } from 'lucide-react';
 
 const EXPLORED_STORAGE_KEY = 'learnsphere_explored_diagrams_v1';
@@ -45,7 +47,7 @@ interface VisualLearningProps {
 }
 
 export const VisualLearning: React.FC<VisualLearningProps> = ({ onAddNote, onProgressChange }) => {
-  const [visualSectionTab, setVisualSectionTab] = useState<'diagrams' | 'microscopy'>('diagrams');
+  const [visualSectionTab, setVisualSectionTab] = useState<'diagrams' | 'microscopy' | 'body_zoom'>('diagrams');
   const [selectedClass, setSelectedClass] = useState<NCERTClassGrade | 'all'>('all');
   const [selectedSubject, setSelectedSubject] = useState<NCERTSubject | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -317,6 +319,18 @@ ${activeDiagram.examTips.map((e) => `- ${e}`).join('\n')}
               <Eye className="w-3.5 h-3.5" />
               <span>Microscopy ({MICROSCOPY_SLIDES.length} Views)</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setVisualSectionTab('body_zoom')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                visualSectionTab === 'body_zoom'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
+              }`}
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+              <span>Human Body Zoom (7 Scales)</span>
+            </button>
           </div>
 
           {visualSectionTab === 'diagrams' && (
@@ -337,6 +351,8 @@ ${activeDiagram.examTips.map((e) => `- ${e}`).join('\n')}
 
       {visualSectionTab === 'microscopy' ? (
         <MicroscopyLab onAddNote={onAddNote} />
+      ) : visualSectionTab === 'body_zoom' ? (
+        <HumanBodyZoomExplorer onAddNote={onAddNote} />
       ) : (
         <>
       {/* NCERT Curriculum Learning Progress Bar Banner */}
