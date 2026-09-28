@@ -241,9 +241,12 @@ export const NCERT3DCanvas: React.FC<NCERT3DCanvasProps> = ({
     };
   }, []);
 
-  // Rebuild model when props change
+    // Rebuild model when props change
   useEffect(() => {
     if (!modelGroupRef.current) return;
+    if (rootGroupRef.current && renderType === 'ncert_neuron') {
+      rootGroupRef.current.rotation.set(0.05, 0, 0);
+    }
     clearGroup(modelGroupRef.current);
     buildNCERTModel(renderType, modelGroupRef.current, { wireframe, xray, explodeFactor, unitCellType });
   }, [renderType, wireframe, xray, explodeFactor, unitCellType]);
@@ -2184,85 +2187,481 @@ function buildEyeModel(group: THREE.Group, opts: ModelOpts) {
   eyeGroup.add(rayGroup);
 }
 
-// 7. NEURON (NERVE CELL)
+// Helper: Creates a smoothly tapered 3D tube along a CatmullRomCurve3 for root-like dendrites and nerve endings
+function createTaperedBranchGeometry(
+  points: THREE.Vector3[],
+  tubularSegments: number,
+  rStart: number,
+  rEnd: number,
+  radialSegments = 10
+): THREE.TubeGeometry {
+  const safeTubular = Math.max(4, Math.round(tubularSegments));
+  const safeRadial = Math.max(4, Math.round(radialSegments));
+  const curve = new THREE.CatmullRomCurve3(points);
+  const geom = new THREE.TubeGeometry(curve, safeTubular, 1, safeRadial, false);
+  const pos = geom.attributes.position;
+  const center = new THREE.Vector3();
+  const v = new THREE.Vector3();
+
+  for (let i = 0; i <= safeTubular; i++) {
+    const t = i / safeTubular;
+    curve.getPointAt(t, center);
+    const radius = rStart + (rEnd - rStart) * Math.pow(t, 0.85);
+    for (let j = 0; j <= safeRadial; j++) {
+      const idx = i * (safeRadial + 1) + j;
+      if (idx < pos.count) {
+        v.fromBufferAttribute(pos, idx);
+        v.sub(center).multiplyScalar(radius).add(center);
+        pos.setXYZ(idx, v.x, v.y, v.z);
+      }
+    }
+  }
+  geom.computeVertexNormals();
+  return geom;
+}
+
+// 7. NEURON (NERVE CELL - Exact NCERT Class 9 Fig. 6.12 / Class 10 Fig. 7.1a High-Fidelity 3D Model)
 function buildNeuronModel(group: THREE.Group, opts: ModelOpts) {
-  // Cyton (Soma) - Starburst core
-  const cytonGeom = new THREE.DodecahedronGeometry(0.65, 1);
-  const cytonMat = getMaterial(0x8b5cf6, { ...opts, roughness: 0.35, emissive: 0x6d28d9, emissiveIntensity: 0.4 });
-  const cyton = new THREE.Mesh(cytonGeom, cytonMat);
-  cyton.position.set(-1.3, 0.3, 0);
-  cyton.userData.partInfo = {
-    name: 'Cyton (Cell Body / Soma)',
-    category: 'Neuronal Core',
-    function: 'Integrates postsynaptic potentials and houses the nucleus and Nissl granules.',
+  const explode = opts.explodeFactor * 0.7;
+
+  const somaCenterX = -1.25;
+  const somaCenterY = 0.04;
+
+  // Materials matching NCERT Fig. 6.12 palette (Golden-ochre cell body/axon/dendrites, dark slate-grey nucleus, sky-blue myelin with navy Schwann nuclei)
+  const goldenSomaVertexMat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.48,
+    metalness: 0.06,
+    wireframe: opts.wireframe,
+    transparent: opts.xray,
+    opacity: opts.xray ? 0.38 : 1.0,
+    depthWrite: !opts.xray,
+    emissive: new THREE.Color(0x9a6312),
+    emissiveIntensity: 0.14
+  });
+
+  const dendriteMat = getMaterial(0xc8881e, {
+    ...opts,
+    roughness: 0.45,
+    metalness: 0.06,
+    emissive: 0x85530c,
+    emissiveIntensity: 0.16
+  });
+
+  const axonGoldMat = getMaterial(0xd99b26, {
+    ...opts,
+    roughness: 0.38,
+    metalness: 0.08,
+    emissive: 0xa16610,
+    emissiveIntensity: 0.22
+  });
+
+  // ============================================================================
+  // 1. CELL BODY (CYTON / SOMA) - 7-Pointed Stellate Golden-Ochre Body
+  // ============================================================================
+  const cytonGroup = new THREE.Group();
+  cytonGroup.position.set(-explode * 0.25, 0, 0);
+  cytonGroup.userData.partInfo = {
+    name: 'Cell Body (Cyton / Soma)',
+    category: 'Neuronal Metabolic Center',
+    function: 'Star-shaped (stellate) golden-ochre cell body containing cytoplasm (neuroplasm) and Nissl granules that integrate incoming dendritic signals.',
+    fact: 'Integrates graded potentials and initiates action potentials at the axon hillock.',
     pinId: 'cyton'
   };
-  group.add(cyton);
 
-  // Branching Dendrites
-  for (let d = 0; d < 7; d++) {
-    const angle = (d * Math.PI * 2) / 7;
-    const dCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-1.3 + Math.cos(angle) * 0.4, 0.3 + Math.sin(angle) * 0.4, 0),
-      new THREE.Vector3(-1.3 + Math.cos(angle) * 0.9, 0.3 + Math.sin(angle) * 0.9, (Math.random() - 0.5) * 0.4)
-    ]);
-    const dGeom = new THREE.TubeGeometry(dCurve, 8, 0.03, 6, false);
-    const dMat = getMaterial(0xa78bfa, { emissive: 0x7c3aed, emissiveIntensity: 0.5 });
-    const dMesh = new THREE.Mesh(dGeom, dMat);
-    group.add(dMesh);
+  // Sculpt smooth 8-lobed stellate soma (7 dendritic star points + 1 right-pointing axon hillock at 0 rad)
+  const somaLobes = [
+    { angle: 0.0, amp: 0.42, sharp: 7.5 },   // Right: Axon hillock funnel
+    { angle: 0.86, amp: 0.38, sharp: 8.5 },  // Upper-Right Dendrite trunk (labeled "Dendrite" in Fig. 6.12)
+    { angle: 1.54, amp: 0.33, sharp: 8.5 },  // Top Dendrite trunk
+    { angle: 2.26, amp: 0.39, sharp: 8.5 },  // Upper-Left Dendrite trunk
+    { angle: 2.94, amp: 0.35, sharp: 8.5 },  // Left-Upper Dendrite trunk
+    { angle: -2.62, amp: 0.36, sharp: 8.5 }, // Left-Lower Dendrite trunk
+    { angle: -1.84, amp: 0.37, sharp: 8.5 }, // Bottom-Left Dendrite trunk
+    { angle: -0.98, amp: 0.39, sharp: 8.5 }  // Bottom-Right Dendrite trunk (above "Cell body" label in Fig. 6.12)
+  ];
+
+  const somaGeom = new THREE.SphereGeometry(0.38, 72, 56);
+  const sPos = somaGeom.attributes.position;
+  const sColors: number[] = [];
+  const colCenterGold = new THREE.Color(0xebb438);
+  const colMidGold = new THREE.Color(0xd69322);
+  const colEdgeOchre = new THREE.Color(0x9a6412);
+  const tmpColor = new THREE.Color();
+
+  for (let i = 0; i < sPos.count; i++) {
+    const vx = sPos.getX(i);
+    const vy = sPos.getY(i);
+    const vz = sPos.getZ(i);
+    const r0 = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1;
+    const xyRadius = Math.sqrt(vx * vx + vy * vy);
+    const xyFactor = Math.min(1, xyRadius / (0.38 * 0.98));
+    const theta = Math.atan2(vy, vx);
+
+    let lobeExtension = 0;
+    for (const lobe of somaLobes) {
+      let dAngle = theta - lobe.angle;
+      while (dAngle > Math.PI) dAngle -= Math.PI * 2;
+      while (dAngle < -Math.PI) dAngle += Math.PI * 2;
+      const cosVal = Math.max(0, Math.cos(dAngle));
+      lobeExtension += lobe.amp * Math.pow(cosVal, lobe.sharp);
+    }
+
+    // Concave indentation between star arms + smooth radial pull along star tips
+    const radialScale = 0.84 + lobeExtension * Math.pow(xyFactor, 1.35);
+    const newX = vx * radialScale;
+    const newY = vy * radialScale;
+    // Slightly flattened Pillow/Lenticular Z profile that thins toward the pointed tips
+    const zPinch = Math.max(0.22, 1 - lobeExtension * 0.85 * xyFactor);
+    const newZ = vz * 0.42 * zPinch;
+
+    sPos.setXYZ(i, newX, newY, newZ);
+
+    // Textbook golden-ochre shading with subtle Nissl stippling
+    const distNorm = Math.min(1, Math.sqrt(newX * newX + newY * newY) / 0.52);
+    const nisslNoise =
+      (Math.sin(newX * 42) * Math.cos(newY * 42) * 0.5 + 0.5) * 0.08;
+    if (distNorm < 0.55) {
+      tmpColor.lerpColors(colCenterGold, colMidGold, distNorm / 0.55);
+    } else {
+      tmpColor.lerpColors(colMidGold, colEdgeOchre, (distNorm - 0.55) / 0.45);
+    }
+    tmpColor.offsetHSL(0, 0, -nisslNoise * 0.4);
+    sColors.push(tmpColor.r, tmpColor.g, tmpColor.b);
   }
+  somaGeom.setAttribute('color', new THREE.Float32BufferAttribute(sColors, 3));
+  somaGeom.computeVertexNormals();
 
-  // Long Axon Core Fiber
-  const axonCurve = new THREE.LineCurve3(new THREE.Vector3(-0.7, 0.3, 0), new THREE.Vector3(1.4, -0.2, 0));
-  const axonGeom = new THREE.TubeGeometry(axonCurve, 16, 0.045, 8, false);
-  const axonMat = getMaterial(0x38bdf8, { emissive: 0x0284c7, emissiveIntensity: 0.7 });
-  const axon = new THREE.Mesh(axonGeom, axonMat);
-  axon.name = 'pulsing_axon';
-  axon.userData.partInfo = {
+  const somaMesh = new THREE.Mesh(somaGeom, goldenSomaVertexMat);
+  somaMesh.position.set(somaCenterX, somaCenterY, 0);
+  cytonGroup.add(somaMesh);
+  group.add(cytonGroup);
+
+  // ============================================================================
+  // 2. NUCLEUS (Central Dark Slate-Grey Speckled Spherical Nucleus in Fig. 6.12)
+  // ============================================================================
+  const nucleusGroup = new THREE.Group();
+  nucleusGroup.position.set(somaCenterX - explode * 0.25, somaCenterY, explode * 0.45);
+  nucleusGroup.userData.partInfo = {
+    name: 'Nucleus',
+    category: 'Genetic Control Center',
+    function: 'Large central dark-staining spherical nucleus containing euchromatin and a prominent nucleolus that directs neuronal protein synthesis.',
+    fact: 'Mature neurons lack centrioles and do not undergo mitosis.',
+    pinId: 'nucleus'
+  };
+
+  const nucGeom = new THREE.SphereGeometry(0.175, 44, 36);
+  const nPos = nucGeom.attributes.position;
+  const nColors: number[] = [];
+  const nucLightGrey = new THREE.Color(0x6b7280);
+  const nucDarkGrey = new THREE.Color(0x374151);
+  const nucRimCharcoal = new THREE.Color(0x1f2937);
+
+  for (let i = 0; i < nPos.count; i++) {
+    const nx = nPos.getX(i);
+    const ny = nPos.getY(i);
+    const nz = nPos.getZ(i);
+    // Speckled chromatin stippling matching Fig. 6.12
+    const speckle =
+      0.5 +
+      0.5 * Math.sin(nx * 65 + 1.2) * Math.cos(ny * 65 - 0.8) * Math.sin(nz * 55 + 0.5);
+    const rimFactor = Math.min(1, Math.sqrt(nx * nx + ny * ny) / 0.175);
+    tmpColor.lerpColors(nucDarkGrey, nucLightGrey, speckle);
+    if (rimFactor > 0.78) {
+      tmpColor.lerp(nucRimCharcoal, (rimFactor - 0.78) / 0.22);
+    }
+    nColors.push(tmpColor.r, tmpColor.g, tmpColor.b);
+  }
+  nucGeom.setAttribute('color', new THREE.Float32BufferAttribute(nColors, 3));
+  nucGeom.scale(1.06, 1.0, 0.92);
+  nucGeom.computeVertexNormals();
+
+  const nucMat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.55,
+    metalness: 0.08,
+    wireframe: opts.wireframe,
+    transparent: opts.xray,
+    opacity: opts.xray ? 0.5 : 1.0
+  });
+  const nucMesh = new THREE.Mesh(nucGeom, nucMat);
+  nucleusGroup.add(nucMesh);
+
+  // Dark Nuclear Envelope Outline Ring (front & back) so the dark grey circle is unmistakable
+  const nucRingMat = getMaterial(0x1f2937, { ...opts, roughness: 0.6 });
+  const nucRingFront = new THREE.Mesh(new THREE.TorusGeometry(0.172, 0.01, 12, 48), nucRingMat);
+  nucRingFront.scale.set(1.05, 1.0, 1.0);
+  nucRingFront.position.z = 0.08;
+  nucleusGroup.add(nucRingFront);
+
+  group.add(nucleusGroup);
+
+  // ============================================================================
+  // 3. DENDRITES (7 Multi-Forked Tapering Root-Like Arbors as in Fig. 6.12)
+  // ============================================================================
+  const dendritesGroup = new THREE.Group();
+  dendritesGroup.position.set(-explode * 0.4, explode * 0.12, 0);
+  dendritesGroup.userData.partInfo = {
+    name: 'Dendrite (Branching Receptive Fibers)',
+    category: 'Afferent Input Zone',
+    function: 'Tapering, root-like branching protoplasmic extensions that receive synaptic signals and conduct impulses toward the cell body.',
+    fact: 'Conducts electrochemical impulses centripetally toward the soma.',
+    pinId: 'dendrites'
+  };
+
+  const addBranch = (pts: Array<[number, number, number]>, rStart: number, rEnd: number) => {
+    const vecs = pts.map(([x, y, z]) => new THREE.Vector3(somaCenterX + x, somaCenterY + y, z));
+    const geom = createTaperedBranchGeometry(vecs, 20, rStart, rEnd, 10);
+    dendritesGroup.add(new THREE.Mesh(geom, dendriteMat));
+  };
+
+  // Tree 1: Upper-Right Dendrite (Labeled "Dendrite" in NCERT Fig. 6.12)
+  addBranch([[0.22, 0.25, 0], [0.32, 0.46, 0.01], [0.28, 0.72, 0.02], [0.18, 0.90, 0.02]], 0.044, 0.008);
+  addBranch([[0.31, 0.44, 0.01], [0.42, 0.58, 0.02], [0.45, 0.78, 0.03]], 0.028, 0.007);
+  addBranch([[0.40, 0.55, 0.02], [0.56, 0.62, -0.01], [0.68, 0.61, -0.02]], 0.022, 0.006);
+
+  // Tree 2: Top Dendrite
+  addBranch([[0.01, 0.31, 0], [-0.02, 0.52, -0.01], [-0.14, 0.74, -0.02], [-0.26, 0.88, -0.02]], 0.042, 0.008);
+  addBranch([[-0.02, 0.50, -0.01], [0.06, 0.68, 0.02], [0.02, 0.84, 0.03]], 0.025, 0.007);
+  addBranch([[-0.12, 0.70, -0.02], [-0.26, 0.73, 0.01], [-0.36, 0.70, 0.02]], 0.018, 0.006);
+
+  // Tree 3: Upper-Left Dendrite
+  addBranch([[-0.22, 0.26, 0], [-0.38, 0.45, 0.01], [-0.46, 0.68, 0.02], [-0.42, 0.92, 0.02]], 0.045, 0.008);
+  addBranch([[-0.42, 0.56, 0.01], [-0.58, 0.66, -0.02], [-0.62, 0.82, -0.02]], 0.026, 0.007);
+  addBranch([[-0.44, 0.62, 0.02], [-0.32, 0.72, 0.03], [-0.26, 0.78, 0.03]], 0.018, 0.006);
+
+  // Tree 4: Left-Upper Dendrite
+  addBranch([[-0.33, 0.08, 0], [-0.56, 0.20, -0.01], [-0.78, 0.36, -0.02], [-0.96, 0.60, -0.02]], 0.044, 0.008);
+  addBranch([[-0.66, 0.27, -0.01], [-0.84, 0.48, 0.02], [-0.88, 0.68, 0.03]], 0.026, 0.007);
+  addBranch([[-0.56, 0.20, -0.01], [-0.82, 0.26, 0.01], [-1.04, 0.32, 0.02]], 0.024, 0.007);
+
+  // Tree 5: Left-Lower Dendrite
+  addBranch([[-0.32, -0.16, 0], [-0.56, -0.22, 0.01], [-0.78, -0.38, 0.02], [-0.86, -0.62, 0.02]], 0.043, 0.008);
+  addBranch([[-0.54, -0.21, 0.01], [-0.74, -0.18, -0.02], [-0.94, -0.32, -0.02]], 0.026, 0.007);
+  addBranch([[-0.66, -0.28, 0.01], [-0.68, -0.50, 0.03], [-0.66, -0.68, 0.03]], 0.020, 0.006);
+
+  // Tree 6: Bottom-Left Dendrite
+  addBranch([[-0.12, -0.30, 0], [-0.28, -0.48, -0.01], [-0.46, -0.64, -0.02], [-0.62, -0.78, -0.02]], 0.042, 0.008);
+  addBranch([[-0.34, -0.54, -0.01], [-0.36, -0.72, 0.02], [-0.38, -0.86, 0.02]], 0.024, 0.007);
+
+  // Tree 7: Bottom-Right Dendrite (Directly above "Cell body" label in Fig. 6.12)
+  addBranch([[0.16, -0.28, 0], [0.24, -0.50, 0.01], [0.36, -0.68, 0.02], [0.54, -0.76, 0.02]], 0.044, 0.008);
+  addBranch([[0.28, -0.56, 0.01], [0.34, -0.76, -0.01], [0.40, -0.88, -0.02]], 0.025, 0.007);
+  addBranch([[0.34, -0.65, 0.02], [0.48, -0.66, 0.03], [0.58, -0.66, 0.03]], 0.018, 0.006);
+
+  group.add(dendritesGroup);
+
+  // ============================================================================
+  // 4. AXON (Long Horizontal Golden Nerve Fiber running through center)
+  // ============================================================================
+  const axonGroup = new THREE.Group();
+  axonGroup.userData.partInfo = {
     name: 'Axon (Conducting Nerve Fiber)',
-    category: 'Impulse Conductor',
-    function: 'Propagates action potential waves.',
+    category: 'Efferent Impulse Conductor',
+    function: 'Long, uniform golden-ochre cylindrical process arising from the axon hillock that conducts action potentials away from the cell body.',
+    fact: 'Gaps between adjacent myelin segments are Nodes of Ranvier.',
     pinId: 'axon'
   };
-  group.add(axon);
 
-  // Myelin Sheath Segments (Schwann cells)
-  for (let m = 0; m < 4; m++) {
-    const posX = -0.4 + m * 0.5;
-    const posY = 0.22 - m * 0.11;
-    const sheathGeom = new THREE.CylinderGeometry(0.14, 0.14, 0.36, 16);
-    const sheathMat = getMaterial(0xfacc15, { ...opts, roughness: 0.3, emissive: 0xeab308, emissiveIntensity: 0.3 });
-    const sheath = new THREE.Mesh(sheathGeom, sheathMat);
-    sheath.rotation.z = Math.PI / 2 + 0.22;
-    sheath.position.set(posX, posY, 0);
-    sheath.userData.partInfo = {
-      name: 'Myelin Sheath & Schwann Cell',
-      category: 'Lipid Insulator',
-      function: 'Speeds up nerve impulses via saltatory jumping.',
-      pinId: 'myelin_schwann'
-    };
-    group.add(sheath);
-  }
+  // Smooth tapering transition from soma axon hillock (-0.90) along horizontal shaft to (1.32)
+  const axonCoreGeom = createTaperedBranchGeometry(
+    [
+      new THREE.Vector3(-0.92, 0.035, 0),
+      new THREE.Vector3(-0.68, 0.015, 0),
+      new THREE.Vector3(0.0, 0.005, 0),
+      new THREE.Vector3(0.75, 0.0, 0),
+      new THREE.Vector3(1.32, -0.005, 0)
+    ],
+    48,
+    0.052,
+    0.026,
+    14
+  );
+  const axonMesh = new THREE.Mesh(axonCoreGeom, axonGoldMat);
+  axonMesh.name = 'pulsing_axon';
+  axonGroup.add(axonMesh);
+  group.add(axonGroup);
 
-  // Axon Terminals & Synaptic Knobs
-  const knobPositions = [
-    new THREE.Vector3(1.6, -0.1, 0.3),
-    new THREE.Vector3(1.75, -0.3, 0),
-    new THREE.Vector3(1.6, -0.5, -0.3)
-  ];
-  knobPositions.forEach((pos) => {
-    const knobGeom = new THREE.SphereGeometry(0.1, 12, 12);
-    const knobMat = getMaterial(0xec4899, { emissive: 0xdb2777, emissiveIntensity: 0.8 });
-    const knob = new THREE.Mesh(knobGeom, knobMat);
-    knob.position.copy(pos);
-    knob.userData.partInfo = {
-      name: 'Synaptic Bouton / End Knob',
-      category: 'Neurotransmitter Release',
-      function: 'Exocytoses acetylcholine into the synaptic cleft.',
-      pinId: 'axon_terminals'
-    };
-    group.add(knob);
+  // ============================================================================
+  // 5. FOUR SKY-BLUE MYELIN SHEATH / SCHWANN CELL SEGMENTS (with Navy Nuclei)
+  // ============================================================================
+  const myelinGroup = new THREE.Group();
+  myelinGroup.userData.partInfo = {
+    name: 'Myelin Sheath & Schwann Cells',
+    category: 'Glial Lipid Insulation',
+    function: 'Four sky-blue Schwann cell myelin segments insulating the axon and speeding impulse conduction via saltatory jumping across Nodes of Ranvier.',
+    fact: 'Each Schwann cell wraps around one internodal segment and contains a dark oval nucleus.',
+    pinId: 'myelin_schwann'
+  };
+
+  const sheathBlueMat = getMaterial(0x5b9bd5, {
+    ...opts,
+    roughness: 0.32,
+    metalness: 0.05,
+    transparent: true,
+    opacity: opts.xray ? 0.32 : 0.78,
+    emissive: 0x2563eb,
+    emissiveIntensity: 0.18
   });
+
+  const sheathRimBlueMat = getMaterial(0x3b78b5, {
+    ...opts,
+    roughness: 0.4,
+    metalness: 0.05,
+    transparent: true,
+    opacity: opts.xray ? 0.28 : 0.62
+  });
+
+  const schwannNucleusMat = getMaterial(0x1e3a8a, {
+    ...opts,
+    roughness: 0.35,
+    metalness: 0.1,
+    emissive: 0x172554,
+    emissiveIntensity: 0.25
+  });
+
+  // 4 segments matching exact positions & Schwann nucleus placements in Fig. 6.12:
+  // Seg 1: nucleus top-center; Seg 2: nucleus bottom-left; Seg 3: nucleus bottom-center; Seg 4: nucleus top-right
+  const segmentsConfig = [
+    { xStart: -0.66, xEnd: -0.22, yCenter: 0.012, nucX: -0.43, nucY: 0.058 },
+    { xStart: -0.15, xEnd: 0.31, yCenter: 0.006, nucX: -0.02, nucY: -0.052 },
+    { xStart: 0.37, xEnd: 0.81, yCenter: 0.002, nucX: 0.54, nucY: -0.052 },
+    { xStart: 0.87, xEnd: 1.30, yCenter: -0.003, nucX: 1.11, nucY: 0.056 }
+  ];
+
+  segmentsConfig.forEach((seg, idx) => {
+    const segHolder = new THREE.Group();
+    // Alternate vertical explode offset when user drags the Explode slider
+    const explodeDir = idx % 2 === 0 ? 1 : -1;
+    segHolder.position.set(0, explodeDir * explode * 0.28, explode * 0.22);
+
+    // Upper & Lower blue myelin lobes flanking the central golden axon (just like Fig. 6.12 cross-view)
+    const upperCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(seg.xStart, seg.yCenter + 0.032, 0),
+      new THREE.Vector3((seg.xStart + seg.xEnd) * 0.5, seg.yCenter + 0.048, 0),
+      new THREE.Vector3(seg.xEnd, seg.yCenter + 0.032, 0)
+    ]);
+    const upperLobe = new THREE.Mesh(
+      new THREE.TubeGeometry(upperCurve, 20, 0.044, 14, false),
+      sheathBlueMat
+    );
+    upperLobe.scale.set(1, 0.82, 0.85);
+    segHolder.add(upperLobe);
+
+    const lowerCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(seg.xStart, seg.yCenter - 0.032, 0),
+      new THREE.Vector3((seg.xStart + seg.xEnd) * 0.5, seg.yCenter - 0.048, 0),
+      new THREE.Vector3(seg.xEnd, seg.yCenter - 0.032, 0)
+    ]);
+    const lowerLobe = new THREE.Mesh(
+      new THREE.TubeGeometry(lowerCurve, 20, 0.044, 14, false),
+      sheathBlueMat
+    );
+    lowerLobe.scale.set(1, 0.82, 0.85);
+    segHolder.add(lowerLobe);
+
+    // Outer translucent blue neurilemma envelope uniting each segment
+    const len = seg.xEnd - seg.xStart;
+    const midX = (seg.xStart + seg.xEnd) * 0.5;
+    const envGeom = new THREE.CapsuleGeometry(0.074, Math.max(0.1, len - 0.08), 12, 20);
+    envGeom.rotateZ(Math.PI / 2);
+    envGeom.scale(1, 0.92, 0.62);
+    const envMesh = new THREE.Mesh(envGeom, sheathRimBlueMat);
+    envMesh.position.set(midX, seg.yCenter, 0);
+    segHolder.add(envMesh);
+
+    // Dark-Blue Oval Schwann Cell Nucleus inside each blue myelin block (exact Fig. 6.12 detail)
+    const sNucGeom = new THREE.SphereGeometry(0.036, 18, 14);
+    sNucGeom.scale(1.65, 0.72, 0.75);
+    const sNucMesh = new THREE.Mesh(sNucGeom, schwannNucleusMat);
+    sNucMesh.position.set(seg.nucX, seg.yCenter + seg.nucY, 0.028);
+    segHolder.add(sNucMesh);
+
+    myelinGroup.add(segHolder);
+  });
+
+  group.add(myelinGroup);
+
+  // ============================================================================
+  // 6. NERVE ENDINGS (4 Forked Terminal Branches & Terminal Bars on Right)
+  // ============================================================================
+  const terminalsGroup = new THREE.Group();
+  terminalsGroup.position.set(explode * 0.32, 0, 0);
+  terminalsGroup.userData.partInfo = {
+    name: 'Nerve Ending (Axon Terminals)',
+    category: 'Synaptic Output Zone',
+    function: 'Forked terminal branches (telodendria) at the end of the axon that release chemical neurotransmitters across the synapse.',
+    fact: 'Converts the electrical action potential into a chemical neurotransmitter signal.',
+    pinId: 'axon_terminals'
+  };
+
+  const addTerminalBranch = (
+    pts: Array<[number, number, number]>,
+    rStart: number,
+    rEnd: number,
+    hasEndBar = true
+  ) => {
+    const vecs = pts.map(([x, y, z]) => new THREE.Vector3(x, y, z));
+    const geom = createTaperedBranchGeometry(vecs, 20, rStart, rEnd, 10);
+    terminalsGroup.add(new THREE.Mesh(geom, dendriteMat));
+
+    if (hasEndBar) {
+      const last = vecs[vecs.length - 1];
+      // Small flared vertical synaptic terminal bar/pad at the tip as drawn in Fig. 6.12
+      const barGeom = new THREE.CapsuleGeometry(0.015, 0.055, 8, 12);
+      const barMesh = new THREE.Mesh(barGeom, axonGoldMat);
+      barMesh.position.copy(last);
+      terminalsGroup.add(barMesh);
+    }
+  };
+
+  // Upper main bifurcation trunk -> Top terminal & Upper-middle terminal (matching Fig. 6.12)
+  addTerminalBranch(
+    [
+      [1.30, -0.005, 0],
+      [1.45, 0.08, 0],
+      [1.62, 0.28, 0.01],
+      [1.79, 0.48, 0.01]
+    ],
+    0.024,
+    0.011,
+    true
+  );
+  addTerminalBranch(
+    [
+      [1.44, 0.07, 0],
+      [1.63, 0.08, -0.01],
+      [1.82, 0.07, -0.01]
+    ],
+    0.019,
+    0.011,
+    true
+  );
+
+  // Lower main bifurcation trunk -> Lower-middle terminal & Bottom terminal (labeled "Nerve ending" in Fig. 6.12)
+  addTerminalBranch(
+    [
+      [1.30, -0.005, 0],
+      [1.46, -0.14, 0],
+      [1.64, -0.22, 0.01],
+      [1.82, -0.21, 0.01]
+    ],
+    0.024,
+    0.011,
+    true
+  );
+  addTerminalBranch(
+    [
+      [1.48, -0.16, 0],
+      [1.64, -0.34, -0.01],
+      [1.80, -0.48, -0.01]
+    ],
+    0.019,
+    0.011,
+    true
+  );
+
+  group.add(terminalsGroup);
 }
 
 // 8. RUTHERFORD ALPHA PARTICLE SCATTERING EXPERIMENT

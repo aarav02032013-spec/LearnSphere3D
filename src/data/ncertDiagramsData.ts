@@ -550,52 +550,52 @@ export const NCERT_DIAGRAMS: NCERTDiagramItem[] = [
     renderType: 'ncert_neuron',
     pinpoints: [
       {
-        id: 'cyton',
-        name: 'Cyton (Soma / Cell Body)',
-        position: [-1.4, 0.4, 0],
-        description: 'Central metabolic hub containing a large spherical nucleus, cytoplasm, and Nissl granules (rough ER clusters).',
-        significance: 'Integrates excitatory and inhibitory postsynaptic potentials; generates initial axon hillock action potential.',
-        formulaOrFact: 'Contains prominent nucleolus and abundant neurofilaments.'
+        id: 'nucleus',
+        name: 'Nucleus',
+        position: [-1.25, 0.05, 0.16],
+        description: 'Large, central, spherical dark-staining nucleus with a prominent nucleolus located inside the cell body (soma).',
+        significance: 'Controls cellular metabolism, gene transcription, and synthesis of neurotransmitters and receptor proteins.',
+        formulaOrFact: 'Mature human neurons are post-mitotic (lack centrioles and remain in G₀ phase).'
       },
       {
         id: 'dendrites',
-        name: 'Dendrites (Receptive Arbors)',
-        position: [-1.9, 0.8, 0.3],
-        description: 'Highly branched, tapering protoplasmic projections radiating from the cell body.',
-        significance: 'Presents vast surface area studded with chemical receptors to receive signals from sensory receptors or prior neurons.',
-        formulaOrFact: 'Conducts impulses centripetally (towards the soma).'
+        name: 'Dendrite',
+        position: [-0.96, 0.62, 0.05],
+        description: 'Short, tapering, root-like branching protoplasmic extensions radiating from the stellate cell body.',
+        significance: 'Receives incoming chemical signals across synapses and conducts graded electrical impulses toward the cell body.',
+        formulaOrFact: 'Conducts impulses centripetally (towards the cyton/cell body).'
+      },
+      {
+        id: 'cyton',
+        name: 'Cell Body (Cyton / Soma)',
+        position: [-1.34, -0.34, 0.1],
+        description: 'Star-shaped (stellate) golden-ochre metabolic core containing neuroplasm, neurofibrils, and granular Nissl bodies (rough ER).',
+        significance: 'Integrates incoming dendritic signals and initiates the action potential at the axon hillock.',
+        formulaOrFact: 'Nissl granules synthesize structural proteins and neurotransmitter enzymes.'
       },
       {
         id: 'axon',
-        name: 'Axon (Nerve Fiber)',
-        position: [0.1, 0, 0],
-        description: 'Long cylindrical cytoplasmic cylinder extending from the axon hillock to convey electrical action potentials.',
-        significance: 'Carries signals away from the soma towards target organs, muscles, or adjoining neurons.',
-        formulaOrFact: 'Axoplasm is enclosed by a specialized plasma membrane called the axolemma.'
+        name: 'Axon',
+        position: [-0.2, 0.01, 0.08],
+        description: 'Single, elongated, uniform cylindrical nerve fiber arising from the axon hillock that conducts impulses away from the cell body.',
+        significance: 'Propagates all-or-none electrochemical action potentials from the cell body to the terminal nerve endings.',
+        formulaOrFact: 'Enclosed by the axolemma membrane and filled with axoplasm; gaps between myelin segments are Nodes of Ranvier.'
       },
       {
         id: 'myelin_schwann',
         name: 'Myelin Sheath & Schwann Cells',
-        position: [0.2, 0.22, 0.1],
-        description: 'Multilayered lipid-rich insulating sheath wrapped spirally around the axon in the peripheral nervous system.',
-        significance: 'Acts as electrical insulator, preventing ion leakage and dramatically boosting conduction velocity.',
-        formulaOrFact: 'Composed of 80% lipid (sphingomyelin) and 20% protein.'
-      },
-      {
-        id: 'nodes_ranvier',
-        name: 'Nodes of Ranvier',
-        position: [0.65, 0, 0],
-        description: 'Periodic ~1 micrometer gaps in the myelin sheath along the axon where the axolemma is exposed to extracellular fluid.',
-        significance: 'Action potentials regenerate exclusively here, enabling high-speed saltatory conduction.',
-        formulaOrFact: 'Packed with up to 10,000 voltage-gated $Na^+$ channels per $\\mu m^2$.'
+        position: [0.55, 0.11, 0.1],
+        description: 'Four blue insulating lipid-protein segments formed by Schwann cells (each with a dark oval nucleus) wrapping the axon.',
+        significance: 'Prevents ion leakage and enables rapid saltatory conduction as impulses jump across Nodes of Ranvier.',
+        formulaOrFact: 'Increases nerve impulse velocity up to 100–120 m/s in myelinated fibers.'
       },
       {
         id: 'axon_terminals',
-        name: 'Nerve Endings & Synaptic Knobs',
-        position: [1.7, -0.3, 0],
-        description: 'Terminal telodendria branches ending in swollen bulbous boutons packed with synaptic vesicles.',
-        significance: 'Electrical impulse triggers voltage-gated $Ca^{2+}$ influx, releasing neurotransmitters into the synaptic cleft.',
-        formulaOrFact: 'Transfers signal chemically across a 20 nm synaptic gap in less than 1 millisecond.'
+        name: 'Nerve Ending (Axon Terminals)',
+        position: [1.78, -0.46, 0.05],
+        description: 'Forked terminal arborizations (telodendria) at the distal end of the axon ending in synaptic terminal buttons.',
+        significance: 'Releases chemical neurotransmitters (such as acetylcholine) across the synapse to excite the next neuron or muscle fiber.',
+        formulaOrFact: 'Converts the electrical nerve impulse into a chemical signal across the synaptic cleft.'
       }
     ]
   },
