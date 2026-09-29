@@ -59,6 +59,7 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
   const n3VelBRef = useRef<number>(0);
   const n3RocketPosRef = useRef<number>(180);
   const n3RocketVelRef = useRef<number>(0);
+  const [n3RocketEngineOn, setN3RocketEngineOn] = useState<boolean>(true);
   const n3RocketThrust = useRef<boolean>(true);
   const n3ParticlesRef = useRef<{ x: number; y: number; vx: number; vy: number; life: number; color: string }[]>([]);
 
@@ -198,6 +199,7 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
           velBRef: n3VelBRef,
           rocketPosRef: n3RocketPosRef,
           rocketVelRef: n3RocketVelRef,
+          rocketThrustRef: n3RocketThrust,
           particlesRef: n3ParticlesRef
         });
       } else if (activeSim === 'projectile') {
@@ -255,6 +257,7 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
     n3MassA,
     n3MassB,
     n3PushForce,
+    n3RocketEngineOn,
     projV0,
     projAngle,
     projBodyIndex,
@@ -961,15 +964,21 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <button
                           onClick={() => {
-                            n3RocketThrust.current = !n3RocketThrust.current;
+                            const nextState = !n3RocketEngineOn;
+                            n3RocketThrust.current = nextState;
+                            setN3RocketEngineOn(nextState);
+                            if (!nextState) {
+                              n3RocketVelRef.current = 0;
+                              n3ParticlesRef.current = [];
+                            }
                           }}
                           className={`py-2 px-3 rounded-xl font-bold text-xs transition-all cursor-pointer ${
-                            n3RocketThrust.current
+                            n3RocketEngineOn
                               ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                               : 'bg-slate-800 text-slate-300 border border-slate-700'
                           }`}
                         >
-                          {n3RocketThrust.current ? 'Engine: FIRING' : 'Engine: OFF'}
+                          {n3RocketEngineOn ? 'Engine: FIRING' : 'Engine: OFF'}
                         </button>
                         <button
                           onClick={() => {
@@ -1643,6 +1652,7 @@ function renderNewtonThirdSim(
     velBRef: React.MutableRefObject<number>;
     rocketPosRef: React.MutableRefObject<number>;
     rocketVelRef: React.MutableRefObject<number>;
+    rocketThrustRef: React.MutableRefObject<boolean>;
     particlesRef: React.MutableRefObject<{ x: number; y: number; vx: number; vy: number; life: number; color: string }[]>;
   }
 ) {
@@ -1743,30 +1753,37 @@ function renderNewtonThirdSim(
       ctx.fillRect(sx, sy, 1.5, 1.5);
     }
 
+    const isEngineFiring = params.rocketThrustRef.current;
+
     if (running) {
-      const rAccel = pushForce / rMass;
-      rV += rAccel * dt;
-      rX += rV * dt * 20;
-
-      // Wrap rocket across screen
-      if (rX > canvas.width + 80) {
-        rX = -60;
-      }
-
-      // Generate exhaust fire/gas particles backward
       const particles = params.particlesRef.current;
-      for (let p = 0; p < 4; p++) {
-        particles.push({
-          x: rX - 45,
-          y: rY + (Math.random() - 0.5) * 12,
-          vx: -(Math.random() * 180 + 160),
-          vy: (Math.random() - 0.5) * 45,
-          life: 1.0,
-          color: p % 2 === 0 ? '#f97316' : '#facc15'
-        });
+
+      if (isEngineFiring) {
+        const rAccel = pushForce / rMass;
+        rV += rAccel * dt;
+        rX += rV * dt * 20;
+
+        // Wrap rocket across screen
+        if (rX > canvas.width + 80) {
+          rX = -60;
+        }
+
+        // Generate exhaust fire/gas particles backward only while engine is FIRING
+        for (let p = 0; p < 4; p++) {
+          particles.push({
+            x: rX - 45,
+            y: rY + (Math.random() - 0.5) * 12,
+            vx: -(Math.random() * 180 + 160),
+            vy: (Math.random() - 0.5) * 45,
+            life: 1.0,
+            color: p % 2 === 0 ? '#f97316' : '#facc15'
+          });
+        }
+      } else {
+        rV = 0;
       }
 
-      // Update particles
+      // Update any existing particles
       for (let i = particles.length - 1; i >= 0; i--) {
         const pt = particles[i];
         pt.x += pt.vx * dt;
@@ -1826,11 +1843,18 @@ function renderNewtonThirdSim(
 
     ctx.restore();
 
-    // Draw Force Vectors
-    // Action: Exhaust gas force pointing backward
-    drawArrow(ctx, rX - 45, rY, rX - 140, rY, '#f97316', `ACTION: Gas Pushed Back (-${pushForce} N)`);
-    // Reaction: Forward thrust propelling rocket forward
-    drawArrow(ctx, rX + 40, rY, rX + 130, rY, '#22d3ee', `REACTION: Thrust (+${pushForce} N)`);
+    // Draw Force Vectors only when Engine is FIRING
+    if (isEngineFiring) {
+      // Action: Exhaust gas force pointing backward
+      drawArrow(ctx, rX - 45, rY, rX - 140, rY, '#f97316', `ACTION: Gas Pushed Back (-${pushForce} N)`);
+      // Reaction: Forward thrust propelling rocket forward
+      drawArrow(ctx, rX + 40, rY, rX + 130, rY, '#22d3ee', `REACTION: Thrust (+${pushForce} N)`);
+    } else {
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText('ENGINE OFF (F_thrust = 0 N)', rX, rY + 50);
+    }
 
     // Top HUD
     ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
@@ -1844,11 +1868,19 @@ function renderNewtonThirdSim(
     ctx.fillText("ROCKET REACTION PROPULSION IN VACUUM SPACE", 32, 40);
 
     ctx.font = '11px "JetBrains Mono"';
-    ctx.fillStyle = '#f97316';
-    ctx.fillText(`ACTION: Engine pushes exhaust gas particles backward with Force -${pushForce} N`, 32, 60);
+    if (isEngineFiring) {
+      ctx.fillStyle = '#f97316';
+      ctx.fillText(`ACTION: Engine pushes exhaust gas particles backward with Force -${pushForce} N`, 32, 60);
 
-    ctx.fillStyle = '#22d3ee';
-    ctx.fillText(`REACTION: Gas particles push rocket hull forward with equal Force +${pushForce} N (v = ${rV.toFixed(1)} m/s)`, 32, 78);
+      ctx.fillStyle = '#22d3ee';
+      ctx.fillText(`REACTION: Gas particles push rocket hull forward with equal Force +${pushForce} N (v = ${rV.toFixed(1)} m/s)`, 32, 78);
+    } else {
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('ENGINE STATUS: OFF — No exhaust gas ejected (F_action = 0 N)', 32, 60);
+
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('REACTION THRUST: 0 N — Toggle "Engine: OFF" button to ignite thruster', 32, 78);
+    }
   }
 }
 
