@@ -26,7 +26,7 @@ export const BohrModelVisualizer: React.FC<BohrModelVisualizerProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [speedMultiplier, setSpeedMultiplier] = useState<number>(1);
-  const [tilt3D, setTilt3D] = useState<boolean>(true);
+  const [tilt3D, setTilt3D] = useState<boolean>(false);
   const [hoveredShellIndex, setHoveredShellIndex] = useState<number | null>(null);
   const [selectedShellIndex, setSelectedShellIndex] = useState<number | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -305,14 +305,14 @@ export const BohrModelVisualizer: React.FC<BohrModelVisualizerProps> = ({
 
               <button
                 onClick={() => setTilt3D(!tilt3D)}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border font-medium transition-colors ${
-                  tilt3D
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border font-medium transition-colors cursor-pointer ${
+                  !tilt3D
                     ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300'
                     : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>{tilt3D ? '3D Angled' : '2D Planar'}</span>
+                <span>{tilt3D ? '3D Angled View' : '2D Plane View'}</span>
               </button>
             </div>
 
