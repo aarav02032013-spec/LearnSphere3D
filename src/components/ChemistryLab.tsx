@@ -16,13 +16,14 @@ import {
 import { CHEMICALS, REACTIONS } from '../data/chemistryData';
 import { Chemical, ReactionResult } from '../types';
 import { FormulaCrafter } from './FormulaCrafter';
+import { ChemicalBondingLab } from './ChemicalBondingLab';
 
 interface ChemistryLabProps {
   onAddNote: (title: string, subject: 'Chemistry', content: string, tags: string[], labRef: string) => void;
 }
 
 export const ChemistryLab: React.FC<ChemistryLabProps> = ({ onAddNote }) => {
-  const [chemSectionTab, setChemSectionTab] = useState<'beaker' | 'crafter'>('beaker');
+  const [chemSectionTab, setChemSectionTab] = useState<'beaker' | 'crafter' | 'bonding'>('beaker');
   const [selectedChemicals, setSelectedChemicals] = useState<Chemical[]>([]);
   const [currentTemp, setCurrentTemp] = useState<number>(22.0); // Room temp
   const [heatingActive, setHeatingActive] = useState<boolean>(false);
@@ -244,8 +245,8 @@ ${rx.safetyNote}` : 'No chemical reaction observed. Solution remained in thermod
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Sub-Section Switcher: Wet Reaction Beaker vs. Formula Crafter */}
-          <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
+          {/* Sub-Section Switcher: Wet Reaction Beaker vs. Formula Crafter vs. Chemical Bonding */}
+          <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl">
             <button
               type="button"
               onClick={() => setChemSectionTab('beaker')}
@@ -269,6 +270,18 @@ ${rx.safetyNote}` : 'No chemical reaction observed. Solution remained in thermod
             >
               <Atom className="w-3.5 h-3.5" />
               <span>Formula Crafter (Ions & Compounds)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setChemSectionTab('bonding')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                chemSectionTab === 'bonding'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Chemical Bonding (All 118 Elements)</span>
             </button>
           </div>
 
@@ -298,7 +311,9 @@ ${rx.safetyNote}` : 'No chemical reaction observed. Solution remained in thermod
         </div>
       </div>
 
-      {chemSectionTab === 'crafter' ? (
+      {chemSectionTab === 'bonding' ? (
+        <ChemicalBondingLab onAddNote={onAddNote} />
+      ) : chemSectionTab === 'crafter' ? (
         <FormulaCrafter onAddNote={onAddNote} />
       ) : (
       /* Main Lab Layout */

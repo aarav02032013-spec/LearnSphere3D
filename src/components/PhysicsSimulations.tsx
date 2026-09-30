@@ -171,6 +171,7 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
       }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.textAlign = 'left';
 
       if (activeSim === 'newton_first') {
         renderNewtonFirstSim(ctx, canvas, dt, isRunning, {
@@ -967,10 +968,6 @@ export const PhysicsSimulations: React.FC<PhysicsSimulationsProps> = ({ onAddNot
                             const nextState = !n3RocketEngineOn;
                             n3RocketThrust.current = nextState;
                             setN3RocketEngineOn(nextState);
-                            if (!nextState) {
-                              n3RocketVelRef.current = 0;
-                              n3ParticlesRef.current = [];
-                            }
                           }}
                           className={`py-2 px-3 rounded-xl font-bold text-xs transition-all cursor-pointer ${
                             n3RocketEngineOn
@@ -1761,12 +1758,6 @@ function renderNewtonThirdSim(
       if (isEngineFiring) {
         const rAccel = pushForce / rMass;
         rV += rAccel * dt;
-        rX += rV * dt * 20;
-
-        // Wrap rocket across screen
-        if (rX > canvas.width + 80) {
-          rX = -60;
-        }
 
         // Generate exhaust fire/gas particles backward only while engine is FIRING
         for (let p = 0; p < 4; p++) {
@@ -1779,8 +1770,14 @@ function renderNewtonThirdSim(
             color: p % 2 === 0 ? '#f97316' : '#facc15'
           });
         }
-      } else {
-        rV = 0;
+      }
+
+      // In vacuum space: rocket advances (accelerating if engine ON, or coasting at constant v if engine OFF)
+      rX += rV * dt * 20;
+
+      // Wrap rocket across screen
+      if (rX > canvas.width + 80) {
+        rX = -60;
       }
 
       // Update any existing particles
@@ -1850,10 +1847,13 @@ function renderNewtonThirdSim(
       // Reaction: Forward thrust propelling rocket forward
       drawArrow(ctx, rX + 40, rY, rX + 130, rY, '#22d3ee', `REACTION: Thrust (+${pushForce} N)`);
     } else {
+      if (rV > 0.05) {
+        drawArrow(ctx, rX + 40, rY, rX + 115, rY, '#10b981', `v = ${rV.toFixed(1)} m/s (Constant)`);
+      }
       ctx.fillStyle = '#94a3b8';
       ctx.font = 'bold 11px "JetBrains Mono"';
       ctx.textAlign = 'center';
-      ctx.fillText('ENGINE OFF (F_thrust = 0 N)', rX, rY + 50);
+      ctx.fillText('ENGINE OFF (F_thrust = 0 N, a = 0 m/s²)', rX, rY + 50);
     }
 
     // Top HUD
@@ -1876,10 +1876,10 @@ function renderNewtonThirdSim(
       ctx.fillText(`REACTION: Gas particles push rocket hull forward with equal Force +${pushForce} N (v = ${rV.toFixed(1)} m/s)`, 32, 78);
     } else {
       ctx.fillStyle = '#94a3b8';
-      ctx.fillText('ENGINE STATUS: OFF — No exhaust gas ejected (F_action = 0 N)', 32, 60);
+      ctx.fillText('ENGINE STATUS: OFF — No exhaust gas ejected (F_action = 0 N, F_reaction = 0 N)', 32, 60);
 
-      ctx.fillStyle = '#64748b';
-      ctx.fillText('REACTION THRUST: 0 N — Toggle "Engine: OFF" button to ignite thruster', 32, 78);
+      ctx.fillStyle = '#10b981';
+      ctx.fillText(`VACUUM INERTIA: Acceleration a = 0.00 m/s² | Constant Velocity v = ${rV.toFixed(1)} m/s`, 32, 78);
     }
   }
 }
@@ -2023,17 +2023,18 @@ function renderProjectileSim(
   drawArrow(ctx, curX, curY, curX + curVx * 1.5, curY - curVy * 1.5, '#ffffff', 'V');
 
   // Telemetry HUD inside canvas
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-  ctx.fillRect(originX + 10, 20, 240, 80);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  ctx.fillRect(20, 20, 255, 86);
   ctx.strokeStyle = '#334155';
-  ctx.strokeRect(originX + 10, 20, 240, 80);
+  ctx.strokeRect(20, 20, 255, 86);
 
   ctx.fillStyle = '#94a3b8';
   ctx.font = '11px "JetBrains Mono"';
-  ctx.fillText(`Time (t): ${currentT.toFixed(2)} s / ${tFlight.toFixed(2)} s`, originX + 20, 40);
-  ctx.fillText(`Apex Max Height: ${((v0y * v0y) / (2 * g)).toFixed(1)} m`, originX + 20, 58);
-  ctx.fillText(`Range (R): ${(v0x * tFlight).toFixed(1)} m`, originX + 20, 76);
-  ctx.fillText(`Current V_y: ${curVy.toFixed(1)} m/s`, originX + 20, 94);
+  ctx.fillText(`Time (t): ${currentT.toFixed(2)} s / ${tFlight.toFixed(2)} s`, 32, 40);
+  ctx.fillText(`Apex Max Height: ${((v0y * v0y) / (2 * g)).toFixed(1)} m`, 32, 58);
+  ctx.fillText(`Range (R): ${(v0x * tFlight).toFixed(1)} m`, 32, 76);
+  ctx.fillText(`Current V_y: ${curVy.toFixed(1)} m/s`, 32, 94);
 }
 
 function renderCollisionSim(
@@ -2098,9 +2099,10 @@ function renderCollisionSim(
   ctx.fillRect(x1, trackY - cartHeight + 15, cartWidth, cartHeight);
   ctx.strokeStyle = '#38bdf8';
   ctx.strokeRect(x1, trackY - cartHeight + 15, cartWidth, cartHeight);
+  ctx.textAlign = 'left';
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 11px sans-serif';
-  ctx.fillText(`C1: ${params.m1}kg`, x1 + 10, trackY - 5);
+  ctx.fillText(`C1: ${params.m1}kg`, x1 + 8, trackY - 2);
 
   // Draw Cart 2 (Amber)
   const x2 = params.cart2PosRef.current;
@@ -2110,22 +2112,28 @@ function renderCollisionSim(
   ctx.strokeRect(x2, trackY - cartHeight + 15, cartWidth, cartHeight);
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 11px sans-serif';
-  ctx.fillText(`C2: ${params.m2}kg`, x2 + 10, trackY - 5);
+  ctx.fillText(`C2: ${params.m2}kg`, x2 + 8, trackY - 2);
 
   // Velocity arrows on carts
   drawArrow(ctx, x1 + cartWidth / 2, trackY - cartHeight + 5, x1 + cartWidth / 2 + params.cart1VelRef.current * 15, trackY - cartHeight + 5, '#38bdf8', `${params.cart1VelRef.current.toFixed(1)} m/s`);
   drawArrow(ctx, x2 + cartWidth / 2, trackY - cartHeight + 5, x2 + cartWidth / 2 + params.cart2VelRef.current * 15, trackY - cartHeight + 5, '#fbbf24', `${params.cart2VelRef.current.toFixed(1)} m/s`);
 
-  // Telemetry: Momentum & Kinetic Energy
+  // Telemetry: Momentum & Kinetic Energy HUD Box
   const p1 = params.m1 * params.cart1VelRef.current;
   const p2 = params.m2 * params.cart2VelRef.current;
   const pTot = p1 + p2;
   const keTot = 0.5 * params.m1 * Math.pow(params.cart1VelRef.current, 2) + 0.5 * params.m2 * Math.pow(params.cart2VelRef.current, 2);
 
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  ctx.fillRect(20, 20, 365, 58);
+  ctx.strokeStyle = '#334155';
+  ctx.strokeRect(20, 20, 365, 58);
+
   ctx.fillStyle = '#94a3b8';
   ctx.font = '11px "JetBrains Mono"';
-  ctx.fillText(`Total Momentum (p): ${pTot.toFixed(2)} kg·m/s (CONSERVED)`, 60, 40);
-  ctx.fillText(`Total Kinetic Energy (KE): ${keTot.toFixed(2)} J`, 60, 60);
+  ctx.fillText(`Total Momentum (p): ${pTot.toFixed(2)} kg·m/s (CONSERVED)`, 32, 42);
+  ctx.fillText(`Total Kinetic Energy (KE): ${keTot.toFixed(2)} J`, 32, 62);
 }
 
 function renderGravityOrbitSim(
@@ -2255,6 +2263,7 @@ function drawArrow(
   ctx.closePath();
   ctx.fill();
 
+  ctx.textAlign = 'left';
   ctx.font = '10px "JetBrains Mono"';
   ctx.fillText(label, toX + 5, toY - 5);
 }
