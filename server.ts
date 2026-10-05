@@ -41,9 +41,9 @@ app.use((req, res, next) => {
   next();
 });
 
-function getGenAIClient() {
+function getGenAIClient(apiKey: string) {
   return new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
+    apiKey,
     httpOptions: {
       headers: {
         'User-Agent': 'aistudio-build',
@@ -103,15 +103,16 @@ Formatting guidelines:
 - Do NOT use raw LaTeX delimiters like $$...$$, $...$, \\(...\\), \\[...\\], or \\frac{a}{b}. Write formulas using clean Unicode symbols inside backticks.
 - Include a short "Lumi's Study Tip:" or "Memory Trick:" line when helpful for retention.`;
 
-    const ai = getGenAIClient();
+    const apiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY is not configured; using built-in Lumi knowledge engine');
+    }
 
+    const ai = getGenAIClient(apiKey);
     const contents = buildValidGeminiContents(history, message.trim());
-
     const modelsToTry = [
       'gemini-3.8-flash',
       'gemini-flash-latest',
-      'gemini-3.1-flash-lite',
-      'gemini-3-flash-preview',
       'gemini-2.5-flash',
     ];
     let replyText = '';

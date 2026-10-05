@@ -1050,11 +1050,11 @@ Formatting rules:
     }
   }
 
-  // 2. Zero-Key HuggingFace Dedicated TGI Relay (fast ~3s, CORS-enabled for *.github.io)
+  // 2. Zero-Key HuggingFace Dedicated TGI Relay
   try {
     const hfPrompt = `${systemPrompt}\n\nStudent Question: ${req.message.trim()}\n\nLumi's Response:`;
     const postCtrl = new AbortController();
-    const postTimer = setTimeout(() => postCtrl.abort(), 10000);
+    const postTimer = setTimeout(() => postCtrl.abort(), 2500);
     const postRes = await fetch(
       'https://huggingface-projects-llama-3-2-3b-instruct.hf.space/gradio_api/call/generate',
       {
@@ -1073,7 +1073,7 @@ Formatting rules:
       const eventId = postJson?.event_id;
       if (eventId) {
         const streamCtrl = new AbortController();
-        const streamTimer = setTimeout(() => streamCtrl.abort(), 18000);
+        const streamTimer = setTimeout(() => streamCtrl.abort(), 3500);
         const streamRes = await fetch(
           `https://huggingface-projects-llama-3-2-3b-instruct.hf.space/gradio_api/call/generate/${eventId}`,
           { signal: streamCtrl.signal }
@@ -1101,7 +1101,7 @@ Formatting rules:
     // Fall through to secondary cloud relay
   }
 
-  // 3. Secondary Cloud AI Relay (Pollinations OpenAI endpoint with short 8s timeout)
+  // 3. Secondary Cloud AI Relay (Pollinations OpenAI endpoint with short 2.5s timeout)
   const compactHistory = req.history.slice(-2).map((h) => ({
     role: h.role === 'model' ? 'assistant' : 'user',
     content: h.text.slice(0, 300)
@@ -1115,7 +1115,7 @@ Formatting rules:
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
 
     const response = await fetch('https://text.pollinations.ai/openai', {
       method: 'POST',
@@ -1154,13 +1154,13 @@ Formatting rules:
  * Live AI + Academic Knowledge Engine for Static Hosts (GitHub Pages) & Server Fallback.
  */
 export async function fetchLiveAcademicAnswer(req: LumiLocalRequest): Promise<string | null> {
-  // 1. Call Gemini Free Flash Model (@google/genai) + Zero-Key Cloud AI Relay FIRST
-  const generativeAIReply = await fetchClientGeminiFlashAnswer(req);
-  if (generativeAIReply) return generativeAIReply;
-
-  // 2. Offline / Fallback: Check our curated NCERT/STEM library (derivations, atomicity, 118 elements, numericals)
+  // 1. Offline / Local: Check our curated NCERT/STEM library (derivations, atomicity, 118 elements, numericals) FIRST
   const localMatch = findExactLocalMatch(req);
   if (localMatch) return localMatch;
+
+  // 2. Call Gemini Free Flash Model (@google/genai) + Cloud AI Relay
+  const generativeAIReply = await fetchClientGeminiFlashAnswer(req);
+  if (generativeAIReply) return generativeAIReply;
 
   // 3. Fallback if AI endpoint is unreachable: Check "difference between X and Y" via Wikipedia CORS API
   const diffMatch = req.message.match(
