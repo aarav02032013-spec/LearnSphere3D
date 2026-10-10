@@ -3,154 +3,18 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import {
+  generateLocalLumiResponse,
+  fetchLiveAcademicAnswer,
+  cleanAIMathFormatting,
+  buildValidGeminiContents,
+} from './src/components/StudyBuddy/lumiKnowledgeEngine';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
-
-function cleanTexSymbols(tex: string, preserveNewlines = false): string {
-  let s = tex
-    .replace(/\$\$/g, '')
-    .replace(/\\tag\{[^}]*\}/g, '')
-    .replace(/\\text\{([^{}]*)\}/g, '$1')
-    .replace(/\\mathrm\{([^{}]*)\}/g, '$1')
-    .replace(/\\mathbf\{([^{}]*)\}/g, '$1')
-    .replace(/\\left\s*([()[\]|])/g, '$1')
-    .replace(/\\right\s*([()[\]|])/g, '$1')
-    .replace(/\\left|\\right/g, '');
-
-  const supMap: Record<string, string> = {
-    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
-    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
-    '+': '⁺', '-': '⁻', n: 'ⁿ'
-  };
-  const subMap: Record<string, string> = {
-    '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
-    '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
-    '+': '₊', '-': '₋'
-  };
-
-  s = s
-    .replace(/\^\{([0-9+-n]+)\}/g, (_m, exp: string) =>
-      exp.split('').map((c) => supMap[c] || c).join('')
-    )
-    .replace(/\^([0-9])/g, (_m, d: string) => supMap[d] || `^${d}`)
-    .replace(/\^\{([^{}]+)\}/g, '^($1)')
-    .replace(/_\{([0-9+-]+)\}/g, (_m, sub: string) =>
-      sub.split('').map((c) => subMap[c] || c).join('')
-    )
-    .replace(/_([0-9])/g, (_m, d: string) => subMap[d] || `_${d}`)
-    .replace(/_\{([^{}]+)\}/g, '_$1');
-
-  for (let i = 0; i < 4; i++) {
-    s = s.replace(/\\[dt]?frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, (_m, num: string, den: string) => {
-      const n = num.trim();
-      const d = den.trim();
-      if (n === '1' && d === '2') return '½';
-      if (n === '1' && d === '3') return '⅓';
-      if (n === '1' && d === '4') return '¼';
-      if (n === '3' && d === '4') return '¾';
-      const nWrap = /[+\-*/\s]/.test(n) ? `(${n})` : n;
-      const dWrap = /[+\-*/\s]/.test(d) || d.length > 1 ? `(${d})` : d;
-      return `${nWrap} / ${dWrap}`;
-    });
-  }
-
-  s = s
-    .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
-    .replace(/\\times/g, '×')
-    .replace(/\\cdot/g, '·')
-    .replace(/\\div/g, '÷')
-    .replace(/\\pm/g, '±')
-    .replace(/\\mp/g, '∓')
-    .replace(/\\leq|\\le/g, '≤')
-    .replace(/\\geq|\\ge/g, '≥')
-    .replace(/\\neq|\\ne/g, '≠')
-    .replace(/\\approx/g, '≈')
-    .replace(/\\propto/g, '∝')
-    .replace(/\\infty/g, '∞')
-    .replace(/\\rightarrow|\\to|\\longrightarrow/g, '→')
-    .replace(/\\leftarrow/g, '←')
-    .replace(/\\rightleftharpoons/g, '⇌')
-    .replace(/\\Delta/g, 'Δ')
-    .replace(/\\theta/g, 'θ')
-    .replace(/\\alpha/g, 'α')
-    .replace(/\\beta/g, 'β')
-    .replace(/\\gamma/g, 'γ')
-    .replace(/\\lambda/g, 'λ')
-    .replace(/\\mu/g, 'μ')
-    .replace(/\\nu/g, 'ν')
-    .replace(/\\pi/g, 'π')
-    .replace(/\\rho/g, 'ρ')
-    .replace(/\\sigma/g, 'σ')
-    .replace(/\\omega/g, 'ω')
-    .replace(/\\Omega/g, 'Ω')
-    .replace(/\\,/g, ' ')
-    .replace(/\\;/g, ' ')
-    .replace(/\\quad|\\qquad/g, '  ');
-
-  if (!preserveNewlines) {
-    s = s.replace(/\s+/g, ' ').trim();
-  }
-  return s;
-}
-
-function cleanAIMathFormatting(raw: string): string {
-  if (!raw) return '';
-
-  let out = raw
-    .replace(/`\s*\$\$\s*([\s\S]*?)\s*\$\$\s*`/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
-    .replace(/`\s*\$\s*([^$`\n]+?)\s*\$\s*`/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
-    .replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (_m, inner) => `\n- \`${cleanTexSymbols(inner)}\`\n`)
-    .replace(/\$\$\s*([\s\S]*?)\s*\$\$/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
-    .replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``)
-    .replace(/\$([^$\n]+?)\$/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``);
-
-  out = out.replace(/`([^`\n]+)`/g, (_m, inner) => `\`${cleanTexSymbols(inner)}\``);
-  if (/\\(?:d?frac|sqrt|times|cdot|text|left|right|alpha|beta|gamma|theta|Delta|pi|Omega)/.test(out)) {
-    out = cleanTexSymbols(out, true);
-  }
-
-  return out.replace(/\n{3,}/g, '\n\n').trim();
-}
-
-function buildValidGeminiContents(
-  history: Array<{ role: 'user' | 'model'; text: string }>,
-  currentMessage: string
-): Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> {
-  const normalized: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
-
-  for (const turn of history.slice(-8)) {
-    const cleanText = (turn.text || '').trim().slice(0, 800);
-    if (!cleanText) continue;
-    const role: 'user' | 'model' = turn.role === 'model' ? 'model' : 'user';
-
-    if (normalized.length === 0) {
-      if (role === 'model') continue;
-      normalized.push({ role, parts: [{ text: cleanText }] });
-    } else {
-      const prev = normalized[normalized.length - 1];
-      if (prev.role === role) {
-        prev.parts[0].text = `${prev.parts[0].text}\n\n${cleanText}`.slice(0, 1000);
-      } else {
-        normalized.push({ role, parts: [{ text: cleanText }] });
-      }
-    }
-  }
-
-  if (normalized.length > 0 && normalized[normalized.length - 1].role === 'user') {
-    normalized.pop();
-  }
-
-  normalized.push({
-    role: 'user',
-    parts: [{ text: currentMessage.trim() }]
-  });
-
-  return normalized;
-}
+const PORT = 3000;
 
 app.use(express.json({ limit: '2mb' }));
 
@@ -177,9 +41,14 @@ app.use((req, res, next) => {
   next();
 });
 
-function getGenAIClient(apiKey: string) {
+// Google Search Console ownership verification route
+app.get('/google48366c5400002405.html', (_req, res) => {
+  res.type('text/html').send('google-site-verification: google48366c5400002405.html');
+});
+
+function getGenAIClient() {
   return new GoogleGenAI({
-    apiKey,
+    apiKey: process.env.GEMINI_API_KEY,
     httpOptions: {
       headers: {
         'User-Agent': 'aistudio-build',
@@ -239,17 +108,16 @@ Formatting guidelines:
 - Do NOT use raw LaTeX delimiters like $$...$$, $...$, \\(...\\), \\[...\\], or \\frac{a}{b}. Write formulas using clean Unicode symbols inside backticks.
 - Include a short "Lumi's Study Tip:" or "Memory Trick:" line when helpful for retention.`;
 
-    const apiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not configured; using built-in Lumi knowledge engine');
-    }
+    const ai = getGenAIClient();
 
-    const ai = getGenAIClient(apiKey);
     const contents = buildValidGeminiContents(history, message.trim());
+
     const modelsToTry = [
-      'gemini-flash-latest',
       'gemini-3.8-flash',
+      'gemini-flash-latest',
       'gemini-3.1-flash-lite',
+      'gemini-3-flash-preview',
+      'gemini-2.5-flash',
     ];
     let replyText = '';
 
@@ -278,11 +146,30 @@ Formatting guidelines:
 
     res.json({ reply: cleanAIMathFormatting(replyText) });
   } catch (error: unknown) {
-    const errorMsg = error instanceof Error ? error.message : 'Gemini API temporarily unavailable';
-    console.warn('/api/study-buddy/chat service message:', errorMsg);
-    res.status(503).json({
-      error: errorMsg,
-    });
+    console.warn('Gemini API unavailable in /api/study-buddy/chat, using built-in Lumi knowledge engine:', error);
+    const {
+      message = '',
+      history = [],
+      subject = 'All Subjects',
+      gradeBand = 'Classes 9–10',
+      studyMode = 'explain',
+    } = (req.body || {}) as {
+      message?: string;
+      history?: ChatHistoryItem[];
+      subject?: string;
+      gradeBand?: string;
+      studyMode?: 'explain' | 'solver' | 'exam' | 'quiz';
+    };
+    const reqPayload = {
+      message: String(message),
+      history: Array.isArray(history) ? history : [],
+      subject,
+      gradeBand,
+      studyMode,
+    };
+    const liveAcademicReply = await fetchLiveAcademicAnswer(reqPayload);
+    const fallbackReply = liveAcademicReply || generateLocalLumiResponse(reqPayload);
+    res.json({ reply: fallbackReply });
   }
 });
 
